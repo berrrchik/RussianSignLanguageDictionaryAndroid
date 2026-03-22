@@ -19,3 +19,9 @@
 # If you keep the line number information, uncomment this to
 # hide the original source file name.
 #-renamesourcefileattribute SourceFile
+
+-keepattributes *Annotation*, InnerClasses
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers class kotlinx.serialization.json.* { *** Companion; }
+-keepclasseswithmembers class **$$serializer { *; }
+-keepclassmembers @kotlinx.serialization.Serializable class ** { *** Companion; }
