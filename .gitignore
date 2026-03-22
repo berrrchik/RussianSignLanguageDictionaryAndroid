@@ -1,15 +1,49 @@
+# IDE and local workspace files
+.idea/
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
 .DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+
+# Gradle and Android local config
+.gradle/
 local.properties
+
+# Build outputs
+build/
+**/build/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# Environment and local secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+
+# Signing keys and certificates
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+*.pem
+*.cer
+*.der
+*.mobileprovision
+keystore.properties
+signing.properties
+secrets.properties
+secret.properties
+
+# Firebase and cloud credentials
+**/google-services.json
+**/GoogleService-Info.plist
+**/serviceAccount*.json
+**/*service-account*.json
+**/firebase-adminsdk-*.json
+
+# Logs and temporary files
+*.log
