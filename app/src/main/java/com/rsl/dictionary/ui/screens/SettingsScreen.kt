@@ -42,22 +42,13 @@ fun SettingsScreen(
 ) {
     val analyticsService = rememberAnalyticsService()
     val context = LocalContext.current
-    val clearCacheResultFlow = viewModel.clearCacheResult
     val isCacheClearing by viewModel.isCacheClearing.collectAsStateWithLifecycle()
+    val showCacheClearedDialog by viewModel.showCacheCleared.collectAsStateWithLifecycle()
 
     var showClearCacheDialog by remember { mutableStateOf(false) }
-    var showCacheClearedDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         analyticsService.logScreenView("settings", "SettingsScreen")
-    }
-
-    LaunchedEffect(clearCacheResultFlow) {
-        clearCacheResultFlow.collect { success ->
-            if (success) {
-                showCacheClearedDialog = true
-            }
-        }
     }
 
     LazyColumn {
@@ -186,11 +177,11 @@ fun SettingsScreen(
 
     if (showCacheClearedDialog) {
         AlertDialog(
-            onDismissRequest = { showCacheClearedDialog = false },
+            onDismissRequest = { viewModel.dismissCacheClearedDialog() },
             title = { Text(stringResource(R.string.cache_cleared_title)) },
             text = { Text(stringResource(R.string.cache_cleared_message)) },
             confirmButton = {
-                TextButton(onClick = { showCacheClearedDialog = false }) {
+                TextButton(onClick = { viewModel.dismissCacheClearedDialog() }) {
                     Text(stringResource(R.string.ok))
                 }
             }
