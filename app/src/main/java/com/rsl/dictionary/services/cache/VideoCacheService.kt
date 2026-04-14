@@ -17,6 +17,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import java.util.concurrent.TimeUnit
 
 class VideoCacheService @Inject constructor(
     private val okHttpClient: OkHttpClient,
@@ -24,8 +25,19 @@ class VideoCacheService @Inject constructor(
 ) {
     private val downloadScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val inMemoryCache = LruCache<Int, Uri>(IN_MEMORY_CACHE_SIZE)
+    private val videoHttpClient by lazy {
+        okHttpClient.newBuilder()
+            .connectTimeout(VIDEO_CONNECT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .readTimeout(VIDEO_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .callTimeout(VIDEO_CALL_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .build()
+    }
 
     fun getFromMemory(video: SignVideo): Uri? = inMemoryCache.get(video.id)
+
+    fun clearInMemoryCache() {
+        inMemoryCache.evictAll()
+    }
 
     suspend fun getOrDownload(video: SignVideo, targetDir: File, context: Context): Uri {
         val cachedInMemory = inMemoryCache.get(video.id)
@@ -75,7 +87,7 @@ class VideoCacheService @Inject constructor(
                 .get()
                 .build()
 
-            okHttpClient.newCall(request).execute().use { response ->
+            videoHttpClient.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) {
                     throw IOException("Video download failed with HTTP ${response.code}")
                 }
@@ -113,5 +125,8 @@ class VideoCacheService @Inject constructor(
     private companion object {
         const val IN_MEMORY_CACHE_SIZE = 20
         const val FAVORITES_DIRECTORY_NAME = "favorites_videos"
+        const val VIDEO_CONNECT_TIMEOUT_SECONDS = 5L
+        const val VIDEO_READ_TIMEOUT_SECONDS = 15L
+        const val VIDEO_CALL_TIMEOUT_SECONDS = 15L
     }
 }

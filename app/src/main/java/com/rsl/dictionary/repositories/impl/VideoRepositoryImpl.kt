@@ -61,6 +61,12 @@ class VideoRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun clearCache() {
+        val shortTermDir = VideoCacheDirectoryManager.shortTermDir(context)
+        videoCacheService.clearInMemoryCache()
+        videoCacheService.clearDirectory(shortTermDir)
+    }
+
     override suspend fun clearFavoritesCache(sign: Sign) {
         val favoritesDir = VideoCacheDirectoryManager.favoritesDir(context)
         sign.videosArray.forEach { video ->
