@@ -8,6 +8,7 @@ import com.rsl.dictionary.models.SignVideo
 import com.rsl.dictionary.repositories.protocols.VideoRepository
 import com.rsl.dictionary.services.cache.VideoCacheDirectoryManager
 import com.rsl.dictionary.services.cache.VideoCacheService
+import com.rsl.dictionary.services.network.NetworkMonitor
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.io.IOException
@@ -19,7 +20,8 @@ import kotlinx.coroutines.launch
 
 class VideoRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val videoCacheService: VideoCacheService
+    private val videoCacheService: VideoCacheService,
+    private val networkMonitor: NetworkMonitor
 ) : VideoRepository {
 
     private val repositoryScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -29,11 +31,15 @@ class VideoRepositoryImpl @Inject constructor(
             val shortTermDir = VideoCacheDirectoryManager.shortTermDir(context)
             val favoritesDir = VideoCacheDirectoryManager.favoritesDir(context)
 
+            videoCacheService.getFromMemory(video)?.let { return it }
+
             if (useFavoritesCache) {
+                if (videoCacheService.isCached(video, favoritesDir)) {
+                    return videoCacheService.getOrDownload(video, favoritesDir, context)
+                }
+                ensureNetworkAvailable()
                 return videoCacheService.getOrDownload(video, favoritesDir, context)
             }
-
-            videoCacheService.getFromMemory(video)?.let { return it }
 
             if (videoCacheService.isCached(video, shortTermDir)) {
                 return videoCacheService.getOrDownload(video, shortTermDir, context)
@@ -43,6 +49,7 @@ class VideoRepositoryImpl @Inject constructor(
                 return videoCacheService.getOrDownload(video, favoritesDir, context)
             }
 
+            ensureNetworkAvailable()
             videoCacheService.getOrDownload(video, shortTermDir, context)
         } catch (error: VideoRepositoryError) {
             throw error
@@ -72,6 +79,12 @@ class VideoRepositoryImpl @Inject constructor(
         sign.videosArray.forEach { video ->
             val file = File(favoritesDir, "video_${video.id}.mp4")
             VideoCacheDirectoryManager.deleteFile(file)
+        }
+    }
+
+    private fun ensureNetworkAvailable() {
+        if (!networkMonitor.isConnected()) {
+            throw VideoRepositoryError.NoInternet
         }
     }
 }

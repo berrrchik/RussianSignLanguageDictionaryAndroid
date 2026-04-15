@@ -125,8 +125,8 @@ class VideoCacheService @Inject constructor(
     private companion object {
         const val IN_MEMORY_CACHE_SIZE = 20
         const val FAVORITES_DIRECTORY_NAME = "favorites_videos"
-        const val VIDEO_CONNECT_TIMEOUT_SECONDS = 5L
-        const val VIDEO_READ_TIMEOUT_SECONDS = 15L
-        const val VIDEO_CALL_TIMEOUT_SECONDS = 15L
+        const val VIDEO_CONNECT_TIMEOUT_SECONDS = 3L
+        const val VIDEO_READ_TIMEOUT_SECONDS = 6L
+        const val VIDEO_CALL_TIMEOUT_SECONDS = 8L
     }
 }

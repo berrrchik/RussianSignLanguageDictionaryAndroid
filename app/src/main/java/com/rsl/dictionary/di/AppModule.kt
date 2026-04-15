@@ -157,9 +157,10 @@ object AppModule {
     fun provideVideoRepository(
         @ApplicationContext context: Context,
         cacheService: VideoCacheService,
-        dirManager: VideoCacheDirectoryManager
+        dirManager: VideoCacheDirectoryManager,
+        networkMonitor: NetworkMonitor
     ): VideoRepository {
-        return VideoRepositoryImpl(context, cacheService).also { dirManager }
+        return VideoRepositoryImpl(context, cacheService, networkMonitor).also { dirManager }
     }
 
     @Provides
