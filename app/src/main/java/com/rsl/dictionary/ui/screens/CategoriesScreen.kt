@@ -30,6 +30,7 @@ import com.rsl.dictionary.ui.components.CategoryCardView
 import com.rsl.dictionary.ui.components.EmptyStateView
 import com.rsl.dictionary.ui.components.ErrorView
 import com.rsl.dictionary.ui.components.LoadingView
+import com.rsl.dictionary.ui.components.ScreenTitleWithOfflineStatus
 import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.viewmodels.CategoriesViewModel
 
@@ -59,7 +60,11 @@ fun CategoriesScreen(
     ) {
         androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
-                title = { Text(stringResource(R.string.tab_categories)) }
+                title = {
+                    ScreenTitleWithOfflineStatus(
+                        title = stringResource(R.string.tab_categories)
+                    )
+                }
             )
 
             Box(modifier = Modifier.fillMaxSize()) {

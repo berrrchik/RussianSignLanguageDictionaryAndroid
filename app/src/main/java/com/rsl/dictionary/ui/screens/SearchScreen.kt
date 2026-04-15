@@ -43,6 +43,7 @@ import com.rsl.dictionary.ui.components.AlphabeticScrollbarList
 import com.rsl.dictionary.ui.components.EmptyStateView
 import com.rsl.dictionary.ui.components.ErrorView
 import com.rsl.dictionary.ui.components.LoadingView
+import com.rsl.dictionary.ui.components.ScreenTitleWithOfflineStatus
 import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.utilities.data.SortOrder
 import com.rsl.dictionary.viewmodels.FavoritesViewModel
@@ -75,7 +76,11 @@ fun SearchScreen(
 
     Column(modifier = Modifier.fillMaxSize()) {
         TopAppBar(
-            title = { Text(stringResource(R.string.tab_search)) }
+            title = {
+                ScreenTitleWithOfflineStatus(
+                    title = stringResource(R.string.tab_search)
+                )
+            }
         )
 
         OutlinedTextField(

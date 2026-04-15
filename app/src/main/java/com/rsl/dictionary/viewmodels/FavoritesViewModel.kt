@@ -6,6 +6,7 @@ import com.rsl.dictionary.models.Sign
 import com.rsl.dictionary.repositories.protocols.FavoritesRepository
 import com.rsl.dictionary.repositories.protocols.SignRepository
 import com.rsl.dictionary.repositories.protocols.VideoRepository
+import com.rsl.dictionary.utilities.ErrorMessageMapper
 import com.rsl.dictionary.utilities.data.SignGroupingHelper
 import com.rsl.dictionary.utilities.data.SortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +22,8 @@ class FavoritesViewModel @Inject constructor(
     private val signRepository: SignRepository,
     private val videoRepository: VideoRepository
 ) : ViewModel() {
+    private val _favoriteIds = MutableStateFlow<List<String>>(emptyList())
+    val favoriteIds: StateFlow<List<String>> = _favoriteIds.asStateFlow()
 
     private val _favorites = MutableStateFlow<List<Sign>>(emptyList())
     val favorites: StateFlow<List<Sign>> = _favorites.asStateFlow()
@@ -37,6 +40,7 @@ class FavoritesViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             favoritesRepository.favoritesFlow.collect { favoriteIds ->
+                _favoriteIds.value = favoriteIds
                 loadFavoriteSigns(favoriteIds)
             }
         }
@@ -52,9 +56,15 @@ class FavoritesViewModel @Inject constructor(
                 }
                 favoritesRepository.clearAll()
             }.onFailure {
-                _error.value = it.message ?: "Failed to clear favorites"
+                _error.value = ErrorMessageMapper.map(it)
             }
             _isLoading.value = false
+        }
+    }
+
+    fun retryLoadingFavorites() {
+        viewModelScope.launch {
+            loadFavoriteSigns(favoriteIds.value)
         }
     }
 
@@ -75,7 +85,7 @@ class FavoritesViewModel @Inject constructor(
                 SortOrder.ASCENDING
             )
         }.onFailure {
-            _error.value = it.message ?: "Failed to load favorites"
+            _error.value = ErrorMessageMapper.map(it)
         }
 
         _isLoading.value = false

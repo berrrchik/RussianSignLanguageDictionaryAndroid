@@ -9,7 +9,6 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleOut
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -19,15 +18,16 @@ import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
@@ -72,7 +72,11 @@ fun MainScreen(
                 }
             }
         ) { paddingValues ->
-            Box(modifier = Modifier.padding(paddingValues)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+            ) {
                 NavHost(
                     navController = navController,
                     startDestination = Screen.Search.route,
@@ -173,8 +177,21 @@ fun MainScreen(
             AlertDialog(
                 onDismissRequest = { startupViewModel.clearError() },
                 title = { Text(stringResource(R.string.sync_error_title)) },
-                text = { Text(errorMessage) },
+                text = {
+                    Text(
+                        text = buildString {
+                            append(errorMessage)
+                            append("\n\n")
+                            append(stringResource(R.string.startup_error_help))
+                        }
+                    )
+                },
                 confirmButton = {
+                    TextButton(onClick = { startupViewModel.retry() }) {
+                        Text(stringResource(R.string.retry))
+                    }
+                },
+                dismissButton = {
                     TextButton(onClick = { startupViewModel.clearError() }) {
                         Text(stringResource(R.string.ok))
                     }

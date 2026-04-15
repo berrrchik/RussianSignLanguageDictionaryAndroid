@@ -15,6 +15,7 @@
     <string name="syncing">Синхронизация...</string>
     <string name="startup_title">Словарь Русского Жестового Языка</string>
     <string name="startup_loading_message">Подготавливаем словарь жестов…</string>
+    <string name="startup_error_help">Если данные уже загружались раньше, часть приложения может работать офлайн. Попробуйте повторить попытку, когда интернет снова появится.</string>
     <string name="search_placeholder">Введите слово для поиска</string>
     <string name="all_categories">Все категории</string>
     <string name="signs_count">%d жестов</string>
@@ -60,6 +61,8 @@
     <string name="cache_cleared_title">Кэш очищен</string>
     <string name="cache_cleared_message">Кэш успешно очищен</string>
     <string name="sync_error_title">Ошибка синхронизации</string>
+    <string name="offline_status_message">Нет соединения с сервером</string>
+    <string name="offline_status_icon_description">Приложение работает офлайн</string>
     <string name="sort_asc">Сортировка: А-Я</string>
     <string name="sort_desc">Сортировка: Я-А</string>
     <string name="version_format">Версия %1$s (%2$s)</string>

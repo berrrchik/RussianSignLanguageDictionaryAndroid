@@ -35,7 +35,9 @@ import com.rsl.dictionary.R
 import com.rsl.dictionary.services.analytics.rememberAnalyticsService
 import com.rsl.dictionary.ui.components.AlphabeticScrollbarList
 import com.rsl.dictionary.ui.components.EmptyStateView
+import com.rsl.dictionary.ui.components.ErrorView
 import com.rsl.dictionary.ui.components.LoadingView
+import com.rsl.dictionary.ui.components.ScreenTitleWithOfflineStatus
 import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.viewmodels.CategoriesViewModel
 import com.rsl.dictionary.viewmodels.FavoritesViewModel
@@ -48,6 +50,7 @@ fun FavoritesScreen(
 ) {
     val analyticsService = rememberAnalyticsService()
     val categoriesViewModel: CategoriesViewModel = hiltViewModel()
+    val favoriteIds by viewModel.favoriteIds.collectAsStateWithLifecycle()
     val favorites by viewModel.favorites.collectAsStateWithLifecycle()
     val groupedFavorites by viewModel.groupedFavorites.collectAsStateWithLifecycle()
     val categories by categoriesViewModel.categories.collectAsStateWithLifecycle()
@@ -60,15 +63,23 @@ fun FavoritesScreen(
         analyticsService.logScreenView("favorites", "FavoritesScreen")
     }
 
+    val shouldShowLoadError = error != null && favoriteIds.isNotEmpty() && favorites.isEmpty()
+
     LaunchedEffect(error) {
-        error?.let { snackbarHostState.showSnackbar(it) }
+        if (!shouldShowLoadError) {
+            error?.let { snackbarHostState.showSnackbar(it) }
+        }
     }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.tab_favorites)) },
+                title = {
+                    ScreenTitleWithOfflineStatus(
+                        title = stringResource(R.string.tab_favorites)
+                    )
+                },
                 actions = {
                     if (favorites.isNotEmpty()) {
                         IconButton(onClick = { showClearDialog = true }) {
@@ -101,6 +112,13 @@ fun FavoritesScreen(
             when {
                 isLoading -> {
                     LoadingView(stringResource(R.string.loading_favorites))
+                }
+
+                shouldShowLoadError -> {
+                    ErrorView(
+                        message = error.orEmpty(),
+                        retryAction = { viewModel.retryLoadingFavorites() }
+                    )
                 }
 
                 favorites.isEmpty() -> {

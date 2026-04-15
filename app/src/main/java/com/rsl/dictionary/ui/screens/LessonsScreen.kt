@@ -35,6 +35,7 @@ import com.rsl.dictionary.R
 import com.rsl.dictionary.services.analytics.rememberAnalyticsService
 import com.rsl.dictionary.ui.components.ErrorView
 import com.rsl.dictionary.ui.components.LoadingView
+import com.rsl.dictionary.ui.components.ScreenTitleWithOfflineStatus
 import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.viewmodels.LessonsViewModel
 
@@ -64,7 +65,11 @@ fun LessonsScreen(
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
-                title = { Text(stringResource(R.string.tab_lessons)) }
+                title = {
+                    ScreenTitleWithOfflineStatus(
+                        title = stringResource(R.string.tab_lessons)
+                    )
+                }
             )
 
             when {
