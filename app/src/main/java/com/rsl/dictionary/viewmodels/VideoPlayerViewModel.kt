@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rsl.dictionary.models.SignVideo
 import com.rsl.dictionary.repositories.protocols.VideoRepository
+import com.rsl.dictionary.utilities.ErrorMessageMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,7 +56,7 @@ class VideoPlayerViewModel @Inject constructor(
             _error.value = null
             runCatching { videoRepository.getVideoURL(video, isFavorite) }
                 .onSuccess { _videoUri.value = it }
-                .onFailure { _error.value = it.message ?: "Failed to load video" }
+                .onFailure { _error.value = ErrorMessageMapper.map(it) }
             _isLoading.value = false
         }
     }

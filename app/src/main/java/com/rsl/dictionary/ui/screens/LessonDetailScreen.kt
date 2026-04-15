@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -164,10 +163,17 @@ fun LessonDetailScreen(
                                 }
 
                                 videoError != null -> {
-                                    Icon(
-                                        imageVector = Icons.Default.Warning,
-                                        contentDescription = null,
-                                        tint = MaterialTheme.colorScheme.error
+                                    ErrorView(
+                                        message = videoError.orEmpty(),
+                                        retryAction = {
+                                            val retryVideo = SignVideo(
+                                                id = currentLesson.id.hashCode(),
+                                                url = currentLesson.videoUrl,
+                                                contextDescription = "",
+                                                order = 0
+                                            )
+                                            videoViewModel.loadVideo(retryVideo, isFavorite = false)
+                                        }
                                     )
                                 }
 
