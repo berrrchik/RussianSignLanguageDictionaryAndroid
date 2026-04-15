@@ -3,9 +3,11 @@ package com.rsl.dictionary.viewmodels
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rsl.dictionary.errors.LessonRepositoryError
 import com.rsl.dictionary.models.Lesson
 import com.rsl.dictionary.repositories.protocols.LessonRepository
 import com.rsl.dictionary.services.analytics.AnalyticsService
+import com.rsl.dictionary.utilities.ErrorMessageMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -56,12 +58,12 @@ class LessonDetailViewModel @Inject constructor(
                 _allLessons.value = lessons
                 _lesson.value = currentLesson
                 if (currentLesson == null) {
-                    _error.value = "Lesson not found"
+                    _error.value = ErrorMessageMapper.map(LessonRepositoryError.NotFound)
                 } else {
                     analyticsService.logLessonViewed(currentLesson.id, currentLesson.title)
                 }
             }.onFailure {
-                _error.value = it.message ?: "Failed to load lesson"
+                _error.value = ErrorMessageMapper.map(it)
             }
             _isLoading.value = false
         }

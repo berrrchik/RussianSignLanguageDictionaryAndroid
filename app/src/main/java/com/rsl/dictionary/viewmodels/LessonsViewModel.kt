@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rsl.dictionary.models.Lesson
 import com.rsl.dictionary.repositories.protocols.LessonRepository
+import com.rsl.dictionary.utilities.ErrorMessageMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,7 +36,7 @@ class LessonsViewModel @Inject constructor(
             _error.value = null
             runCatching { lessonRepository.getAllLessons() }
                 .onSuccess { _lessons.value = it }
-                .onFailure { _error.value = it.message ?: "Failed to load lessons" }
+                .onFailure { _error.value = ErrorMessageMapper.map(it) }
             _isLoading.value = false
         }
     }

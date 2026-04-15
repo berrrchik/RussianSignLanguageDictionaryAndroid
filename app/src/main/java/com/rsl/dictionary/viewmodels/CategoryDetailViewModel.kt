@@ -5,6 +5,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rsl.dictionary.models.Sign
 import com.rsl.dictionary.repositories.protocols.SignRepository
+import com.rsl.dictionary.utilities.ErrorMessageMapper
 import com.rsl.dictionary.utilities.data.SignGroupingHelper
 import com.rsl.dictionary.utilities.data.SortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -53,7 +54,7 @@ class CategoryDetailViewModel @Inject constructor(
                         SortOrder.ASCENDING
                     )
                 }
-                .onFailure { _error.value = it.message ?: "Failed to load signs" }
+                .onFailure { _error.value = ErrorMessageMapper.map(it) }
             _isLoading.value = false
         }
     }

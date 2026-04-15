@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.rsl.dictionary.models.Category
 import com.rsl.dictionary.services.analytics.AnalyticsService
 import com.rsl.dictionary.services.category.CategoryService
+import com.rsl.dictionary.utilities.ErrorMessageMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -37,7 +38,7 @@ class CategoriesViewModel @Inject constructor(
             _error.value = null
             runCatching { categoryService.getCategories() }
                 .onSuccess { _categories.value = it }
-                .onFailure { _error.value = it.message ?: "Failed to load categories" }
+                .onFailure { _error.value = ErrorMessageMapper.map(it) }
             _isLoading.value = false
         }
     }
