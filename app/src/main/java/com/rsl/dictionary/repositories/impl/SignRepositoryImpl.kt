@@ -58,6 +58,8 @@ class SignRepositoryImpl @Inject constructor(
             throw SignRepositoryError.NetworkError(error.cause)
         } catch (error: SyncError.DecodingError) {
             throw SignRepositoryError.DecodingError(error.cause)
+        } catch (error: SyncError.ServerUnavailable) {
+            throw SignRepositoryError.ServerUnavailable
         } catch (error: SyncError.NoInternet) {
             throw SignRepositoryError.NoDataAvailable
         } catch (_: SyncError) {

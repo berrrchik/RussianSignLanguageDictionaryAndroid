@@ -16,6 +16,8 @@ class LessonRepositoryImpl @Inject constructor(
             signRepository.loadDataWithSync().lessons.sortedBy { it.order }
         } catch (error: SignRepositoryError.NoDataAvailable) {
             throw LessonRepositoryError.NoDataAvailable
+        } catch (error: SignRepositoryError.ServerUnavailable) {
+            throw LessonRepositoryError.ServerUnavailable
         } catch (error: SignRepositoryError.NetworkError) {
             throw LessonRepositoryError.NetworkError(error.cause)
         } catch (_: SignRepositoryError) {
