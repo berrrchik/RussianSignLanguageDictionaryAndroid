@@ -63,7 +63,6 @@ class NetworkMonitor @Inject constructor(
     }
 
     private fun hasRequiredCapabilities(capabilities: NetworkCapabilities): Boolean {
-        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
     }
 }
