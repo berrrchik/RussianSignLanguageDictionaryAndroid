@@ -2,22 +2,16 @@ package com.rsl.dictionary.ui.screens
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -33,8 +27,9 @@ import com.rsl.dictionary.ui.components.LoadingView
 import com.rsl.dictionary.ui.components.ScreenTitleWithOfflineStatus
 import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.viewmodels.CategoriesViewModel
+import com.rsl.dictionary.models.ScreenDataStatus
 
-@OptIn(ExperimentalMaterial3Api::class, androidx.compose.material.ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CategoriesScreen(
     navController: NavController,
@@ -44,19 +39,14 @@ fun CategoriesScreen(
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isLoading,
-        onRefresh = { viewModel.refresh() }
-    )
+    val screenStatus by viewModel.screenStatus.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         analyticsService.logScreenView("categories", "CategoriesScreen")
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pullRefresh(pullRefreshState)
+        modifier = Modifier.fillMaxSize()
     ) {
         androidx.compose.foundation.layout.Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
@@ -73,10 +63,10 @@ fun CategoriesScreen(
                         LoadingView(stringResource(R.string.loading_categories))
                     }
 
-                    error != null -> {
+                    screenStatus is ScreenDataStatus.Error && error != null -> {
                         ErrorView(
                             message = error.orEmpty(),
-                            retryAction = { viewModel.refresh() }
+                            retryAction = { viewModel.retryAfterBlockingError() }
                         )
                     }
 
@@ -107,13 +97,5 @@ fun CategoriesScreen(
                 }
             }
         }
-
-        PullRefreshIndicator(
-            refreshing = isLoading,
-            state = pullRefreshState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp)
-        )
     }
 }

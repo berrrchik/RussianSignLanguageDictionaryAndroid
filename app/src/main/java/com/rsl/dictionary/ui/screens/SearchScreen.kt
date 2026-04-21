@@ -48,6 +48,7 @@ import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.utilities.data.SortOrder
 import com.rsl.dictionary.viewmodels.FavoritesViewModel
 import com.rsl.dictionary.viewmodels.SearchViewModel
+import com.rsl.dictionary.models.ScreenDataStatus
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,10 +62,11 @@ fun SearchScreen(
     val sortOrder by viewModel.sortOrder.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
+    val screenStatus by viewModel.screenStatus.collectAsStateWithLifecycle()
     val groupedResults by viewModel.groupedResults.collectAsStateWithLifecycle()
     val categories by viewModel.categories.collectAsStateWithLifecycle()
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
-    val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
+    val favoriteIds by favoritesViewModel.favoriteIds.collectAsStateWithLifecycle()
 
     var categoryMenuExpanded by remember { mutableStateOf(false) }
     val selectedCategoryName = categories.firstOrNull { it.id == selectedCategoryId }?.name
@@ -183,7 +185,7 @@ fun SearchScreen(
                     LoadingView(stringResource(R.string.loading_signs))
                 }
 
-                error != null -> {
+                screenStatus is ScreenDataStatus.Error && error != null -> {
                     ErrorView(
                         message = error.orEmpty(),
                         retryAction = { viewModel.reload() }
@@ -210,7 +212,7 @@ fun SearchScreen(
                     AlphabeticScrollbarList(
                         groupedSigns = groupedResults,
                         categories = categories,
-                        favorites = favorites.map { it.id },
+                        favorites = favoriteIds,
                         onSignClick = { sign ->
                             navController.navigate(Screen.SignDetail.createRoute(sign.id))
                         }
