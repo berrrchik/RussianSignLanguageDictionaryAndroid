@@ -5,5 +5,5 @@ import com.rsl.dictionary.models.SyncMetadata
 
 interface SyncRepository {
     suspend fun checkForUpdates(lastUpdated: Long): SyncMetadata
-    suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncData
+    suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncFetchResult
 }
