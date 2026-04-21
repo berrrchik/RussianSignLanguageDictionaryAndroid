@@ -1,15 +1,13 @@
 package com.rsl.dictionary.viewmodels
 
-import android.content.SharedPreferences
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.rsl.dictionary.errors.SyncError
+import com.rsl.dictionary.repositories.protocols.RefreshReason
+import com.rsl.dictionary.repositories.protocols.RefreshResult
 import com.rsl.dictionary.repositories.protocols.SignRepository
-import com.rsl.dictionary.repositories.protocols.SyncRepository
 import com.rsl.dictionary.services.analytics.AnalyticsService
-import com.rsl.dictionary.services.cache.CacheService
 import com.rsl.dictionary.services.category.CategoryService
-import com.rsl.dictionary.services.network.NetworkMonitor
 import com.rsl.dictionary.utilities.ErrorMessageMapper
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -17,17 +15,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
 @HiltViewModel
 class StartupViewModel @Inject constructor(
-    private val syncRepository: SyncRepository,
     private val signRepository: SignRepository,
     private val categoryService: CategoryService,
-    private val cacheService: CacheService,
-    private val networkMonitor: NetworkMonitor,
-    private val sharedPreferences: SharedPreferences,
     private val analyticsService: AnalyticsService
 ) : ViewModel() {
     private var hasStarted = false
@@ -65,47 +58,46 @@ class StartupViewModel @Inject constructor(
             _startupError.value = null
 
             try {
-                syncIfNeeded()
+                val refreshResult = signRepository.refresh(RefreshReason.STARTUP)
+                logRefreshOutcome(refreshResult)
+                refreshResult.toFailureOrNull()?.let { throw it }
                 signRepository.getAllSigns()
                 categoryService.getCategories()
-            } catch (error: SyncError) {
-                Timber.e(error, "Startup sync failed")
-                analyticsService.logSyncFailed(syncFailureReason(error))
-                _startupError.value = ErrorMessageMapper.map(error)
             } catch (error: Exception) {
                 Timber.e(error, "Startup preparation failed")
-                analyticsService.logSyncFailed(error.message ?: "unknown_error")
-                _startupError.value = ErrorMessageMapper.map(error)
+                startupFailureReason(error)?.let(analyticsService::logSyncFailed)
+                _startupError.value = ErrorMessageMapper.map(signRepository.dataStatus.value)
+                    ?: ErrorMessageMapper.map(error)
             } finally {
                 _isPreparing.value = false
             }
         }
     }
 
-    private suspend fun syncIfNeeded() {
-        if (!networkMonitor.isConnected()) return
+    private fun logRefreshOutcome(result: RefreshResult) {
+        when (result) {
+            is RefreshResult.Updated,
+            is RefreshResult.NotModified -> analyticsService.logSyncCompleted()
 
-        val lastSyncDate = sharedPreferences.getLong(LAST_SYNC_DATE_KEY, 0L)
-        val metadata = syncRepository.checkForUpdates(lastSyncDate)
-        if (!metadata.hasUpdates) return
-
-        val data = syncRepository.fetchAllData {
-            runBlocking { cacheService.load() }
+            else -> Unit
         }
-        cacheService.save(data)
-        sharedPreferences.edit().putLong(LAST_SYNC_DATE_KEY, data.lastUpdated).apply()
-        analyticsService.logSyncCompleted()
     }
 
-    private fun syncFailureReason(error: SyncError): String = when (error) {
+    private fun RefreshResult.toFailureOrNull(): Throwable? = when (this) {
+        is RefreshResult.NoInternet -> SyncError.NoInternet
+        is RefreshResult.ServerUnavailable -> SyncError.ServerUnavailable
+        is RefreshResult.NetworkError -> SyncError.NetworkError(cause)
+        is RefreshResult.DecodingError -> SyncError.DecodingError(cause)
+        is RefreshResult.UnknownError -> SyncError.UnknownError(cause)
+        else -> null
+    }
+
+    private fun startupFailureReason(error: Throwable): String? = when (error) {
         is SyncError.NoInternet -> "no_internet"
         is SyncError.ServerUnavailable -> "server_unavailable"
         is SyncError.NetworkError -> "network_error"
         is SyncError.DecodingError -> "decoding_error"
         is SyncError.UnknownError -> "unknown_error"
-    }
-
-    private companion object {
-        const val LAST_SYNC_DATE_KEY = "lastSyncDate"
+        else -> "unknown_error"
     }
 }

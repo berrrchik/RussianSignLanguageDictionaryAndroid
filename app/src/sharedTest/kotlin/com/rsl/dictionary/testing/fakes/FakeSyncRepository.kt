@@ -2,6 +2,7 @@ package com.rsl.dictionary.testing.fakes
 
 import com.rsl.dictionary.models.SyncData
 import com.rsl.dictionary.models.SyncMetadata
+import com.rsl.dictionary.repositories.protocols.SyncFetchResult
 import com.rsl.dictionary.repositories.protocols.SyncRepository
 import com.rsl.dictionary.testing.factories.TestDataFactory
 
@@ -21,8 +22,8 @@ class FakeSyncRepository(
         return metadata
     }
 
-    override suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncData {
+    override suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncFetchResult {
         fetchAllDataCalls += 1
-        return syncData
+        return SyncFetchResult.Updated(syncData)
     }
 }
