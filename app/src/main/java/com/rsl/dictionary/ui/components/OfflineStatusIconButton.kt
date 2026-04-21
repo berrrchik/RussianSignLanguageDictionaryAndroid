@@ -26,6 +26,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.rsl.dictionary.R
+import com.rsl.dictionary.utilities.ErrorMessageMapper
 import com.rsl.dictionary.viewmodels.OfflineStatusViewModel
 import kotlinx.coroutines.delay
 
@@ -52,11 +53,12 @@ fun ScreenTitleWithOfflineStatus(
 fun OfflineStatusIconButton(
     viewModel: OfflineStatusViewModel = hiltViewModel()
 ) {
-    val isNetworkConnected by viewModel.isNetworkConnected.collectAsStateWithLifecycle()
+    val indicatorStatus by viewModel.indicatorStatus.collectAsStateWithLifecycle()
     var isMessageVisible by remember { mutableStateOf(false) }
     var messageVersion by remember { mutableStateOf(0) }
 
-    if (isNetworkConnected) return
+    val status = indicatorStatus ?: return
+    val message = ErrorMessageMapper.map(status)
 
     LaunchedEffect(messageVersion) {
         if (messageVersion == 0) return@LaunchedEffect
@@ -91,7 +93,7 @@ fun OfflineStatusIconButton(
                 tonalElevation = 2.dp
             ) {
                 Text(
-                    text = stringResource(R.string.offline_status_message),
+                    text = message,
                     style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier
                         .widthIn(max = 220.dp)
