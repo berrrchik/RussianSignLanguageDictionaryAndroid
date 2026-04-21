@@ -2,6 +2,7 @@ package com.rsl.dictionary.repositories.decorators
 
 import com.rsl.dictionary.models.SyncData
 import com.rsl.dictionary.models.SyncMetadata
+import com.rsl.dictionary.repositories.protocols.SyncFetchResult
 import com.rsl.dictionary.repositories.protocols.SyncRepository
 import timber.log.Timber
 
@@ -25,17 +26,31 @@ class LoggingSyncRepositoryDecorator(
             .getOrThrow()
     }
 
-    override suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncData {
+    override suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncFetchResult {
         Timber.d("SyncRepository.fetchAllData()")
         return runCatching { delegate.fetchAllData(cachedDataProvider) }
             .onSuccess { result ->
-                Timber.d(
-                    "SyncRepository.fetchAllData success(categories=%d, signs=%d, lessons=%d, lastUpdated=%d)",
-                    result.categories.size,
-                    result.signs.size,
-                    result.lessons.size,
-                    result.lastUpdated
-                )
+                when (result) {
+                    is SyncFetchResult.Updated -> {
+                        Timber.d(
+                            "SyncRepository.fetchAllData updated(categories=%d, signs=%d, lessons=%d, lastUpdated=%d)",
+                            result.data.categories.size,
+                            result.data.signs.size,
+                            result.data.lessons.size,
+                            result.data.lastUpdated
+                        )
+                    }
+
+                    is SyncFetchResult.NotModified -> {
+                        Timber.d(
+                            "SyncRepository.fetchAllData not_modified(categories=%d, signs=%d, lessons=%d, lastUpdated=%d)",
+                            result.data.categories.size,
+                            result.data.signs.size,
+                            result.data.lessons.size,
+                            result.data.lastUpdated
+                        )
+                    }
+                }
             }
             .onFailure { error ->
                 Timber.e(error, "SyncRepository.fetchAllData failed")

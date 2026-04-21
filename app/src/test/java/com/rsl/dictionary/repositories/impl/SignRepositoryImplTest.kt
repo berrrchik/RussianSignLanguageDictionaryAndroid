@@ -2,7 +2,14 @@ package com.rsl.dictionary.repositories.impl
 
 import com.rsl.dictionary.errors.SignRepositoryError
 import com.rsl.dictionary.errors.SyncError
+import com.rsl.dictionary.models.DataStatusReason
+import com.rsl.dictionary.models.RepositoryDataStatus
 import com.rsl.dictionary.models.SyncData
+import com.rsl.dictionary.repositories.protocols.CachedDataReason
+import com.rsl.dictionary.repositories.protocols.RefreshReason
+import com.rsl.dictionary.repositories.protocols.RefreshResult
+import com.rsl.dictionary.repositories.protocols.SignRepositoryRefreshState
+import com.rsl.dictionary.repositories.protocols.SyncFetchResult
 import com.rsl.dictionary.repositories.protocols.SyncRepository
 import com.rsl.dictionary.services.cache.CacheService
 import com.rsl.dictionary.services.network.NetworkMonitor
@@ -88,7 +95,7 @@ class SignRepositoryImplTest {
             coEvery { fetchAllData(any()) } coAnswers {
                 backgroundSyncStarted.countDown()
                 backgroundSyncRelease.await(2, TimeUnit.SECONDS)
-                refreshedData
+                SyncFetchResult.Updated(refreshedData)
             }
         }
         val networkMonitor = mockk<NetworkMonitor> {
@@ -117,7 +124,7 @@ class SignRepositoryImplTest {
             coEvery { save(serverData) } returns Unit
         }
         val syncRepository = mockk<SyncRepository> {
-            coEvery { fetchAllData(null) } returns serverData
+            coEvery { fetchAllData(any()) } returns SyncFetchResult.Updated(serverData)
         }
         val networkMonitor = mockk<NetworkMonitor> {
             every { isConnected() } returns true
@@ -157,7 +164,7 @@ class SignRepositoryImplTest {
         }
         val expectedCause = IOException("offline")
         val syncRepository = mockk<SyncRepository> {
-            coEvery { fetchAllData(null) } throws SyncError.NetworkError(expectedCause)
+            coEvery { fetchAllData(any()) } throws SyncError.NetworkError(expectedCause)
         }
         val networkMonitor = mockk<NetworkMonitor> {
             every { isConnected() } returns true
@@ -179,7 +186,7 @@ class SignRepositoryImplTest {
         }
         val expectedCause = IllegalArgumentException("bad json")
         val syncRepository = mockk<SyncRepository> {
-            coEvery { fetchAllData(null) } throws SyncError.DecodingError(expectedCause)
+            coEvery { fetchAllData(any()) } throws SyncError.DecodingError(expectedCause)
         }
         val networkMonitor = mockk<NetworkMonitor> {
             every { isConnected() } returns true
@@ -200,7 +207,7 @@ class SignRepositoryImplTest {
             coEvery { load() } returns null
         }
         val syncRepository = mockk<SyncRepository> {
-            coEvery { fetchAllData(null) } throws SyncError.ServerUnavailable
+            coEvery { fetchAllData(any()) } throws SyncError.ServerUnavailable
         }
         val networkMonitor = mockk<NetworkMonitor> {
             every { isConnected() } returns true
@@ -225,11 +232,11 @@ class SignRepositoryImplTest {
         val release = CompletableDeferred<Unit>()
         val started = CompletableDeferred<Unit>()
         val syncRepository = mockk<SyncRepository> {
-            coEvery { fetchAllData(null) } coAnswers {
+            coEvery { fetchAllData(any()) } coAnswers {
                 calls.incrementAndGet()
                 started.complete(Unit)
                 release.await()
-                serverData
+                SyncFetchResult.Updated(serverData)
             }
         }
         val networkMonitor = mockk<NetworkMonitor> {
@@ -253,6 +260,82 @@ class SignRepositoryImplTest {
         assertSame(serverData, first.await())
         assertSame(serverData, second.await())
         assertEquals(1, calls.get())
+    }
+
+    @Test
+    fun refresh_notModified_emitsCompletedRefreshState() = runTest {
+        val cachedData = TestDataFactory.syncData(lastUpdated = 7L)
+        val memoryCache = MemoryCacheManager<SyncData>().also { it.set(cachedData) }
+        val cacheService = mockk<CacheService>(relaxed = true)
+        val syncRepository = mockk<SyncRepository> {
+            coEvery { fetchAllData(any()) } returns SyncFetchResult.NotModified(cachedData)
+        }
+        val networkMonitor = mockk<NetworkMonitor> {
+            every { isConnected() } returns true
+        }
+
+        val repository = repository(memoryCache, cacheService, syncRepository, networkMonitor)
+
+        val result = repository.refresh(RefreshReason.STARTUP)
+
+        assertEquals(RefreshResult.NotModified(cachedData), result)
+        assertEquals(
+            SignRepositoryRefreshState.Completed(RefreshReason.STARTUP, result),
+            repository.refreshState.value
+        )
+        assertSame(cachedData, repository.syncData.value)
+    }
+
+    @Test
+    fun refresh_withoutNetwork_usesCachedDataWhenAvailable() = runTest {
+        val cachedData = TestDataFactory.syncData(lastUpdated = 7L)
+        val memoryCache = MemoryCacheManager<SyncData>().also { it.set(cachedData) }
+        val repository = repository(
+            memoryCache = memoryCache,
+            cacheService = mockk(relaxed = true),
+            syncRepository = mockk(relaxed = true),
+            networkMonitor = mockk {
+                every { isConnected() } returns false
+            }
+        )
+
+        val result = repository.refresh(RefreshReason.BACKGROUND)
+
+        assertEquals(
+            RefreshResult.UsedCachedData(cachedData, CachedDataReason.NO_INTERNET),
+            result
+        )
+        assertEquals(
+            RepositoryDataStatus.UsingCachedData(DataStatusReason.NoInternet),
+            repository.dataStatus.value
+        )
+    }
+
+    @Test
+    fun refresh_withCachedDataAndServerFailure_marksServerUnavailableCachedMode() = runTest {
+        val cachedData = TestDataFactory.syncData(lastUpdated = 7L)
+        val memoryCache = MemoryCacheManager<SyncData>().also { it.set(cachedData) }
+        val repository = repository(
+            memoryCache = memoryCache,
+            cacheService = mockk(relaxed = true),
+            syncRepository = mockk {
+                coEvery { fetchAllData(any()) } throws SyncError.ServerUnavailable
+            },
+            networkMonitor = mockk {
+                every { isConnected() } returns true
+            }
+        )
+
+        val result = repository.refresh(RefreshReason.BACKGROUND)
+
+        assertEquals(
+            RefreshResult.UsedCachedData(cachedData, CachedDataReason.SERVER_UNAVAILABLE),
+            result
+        )
+        assertEquals(
+            RepositoryDataStatus.UsingCachedData(DataStatusReason.ServerUnavailable),
+            repository.dataStatus.value
+        )
     }
 
     private fun repository(
