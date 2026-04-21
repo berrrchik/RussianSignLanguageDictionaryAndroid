@@ -9,12 +9,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.pullrefresh.PullRefreshIndicator
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -32,6 +28,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rsl.dictionary.R
+import com.rsl.dictionary.models.ScreenDataStatus
 import com.rsl.dictionary.services.analytics.rememberAnalyticsService
 import com.rsl.dictionary.ui.components.ErrorView
 import com.rsl.dictionary.ui.components.LoadingView
@@ -39,7 +36,7 @@ import com.rsl.dictionary.ui.components.ScreenTitleWithOfflineStatus
 import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.viewmodels.LessonsViewModel
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LessonsScreen(
     navController: NavController,
@@ -49,19 +46,14 @@ fun LessonsScreen(
     val lessons by viewModel.lessons.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
-    val pullRefreshState = rememberPullRefreshState(
-        refreshing = isLoading,
-        onRefresh = { viewModel.loadLessons() }
-    )
+    val screenStatus by viewModel.screenStatus.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         analyticsService.logScreenView("lessons", "LessonsScreen")
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pullRefresh(pullRefreshState)
+        modifier = Modifier.fillMaxSize()
     ) {
         Column(modifier = Modifier.fillMaxSize()) {
             TopAppBar(
@@ -77,7 +69,7 @@ fun LessonsScreen(
                     LoadingView(stringResource(R.string.loading_lessons))
                 }
 
-                error != null -> {
+                screenStatus is ScreenDataStatus.Error && error != null -> {
                     ErrorView(
                         message = error.orEmpty(),
                         retryAction = { viewModel.loadLessons() }
@@ -125,13 +117,5 @@ fun LessonsScreen(
                 }
             }
         }
-
-        PullRefreshIndicator(
-            refreshing = isLoading,
-            state = pullRefreshState,
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 8.dp)
-        )
     }
 }
