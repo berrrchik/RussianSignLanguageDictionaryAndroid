@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.rsl.dictionary.errors.SyncError
 import com.rsl.dictionary.models.SyncData
 import com.rsl.dictionary.models.SyncMetadata
+import com.rsl.dictionary.repositories.protocols.SyncFetchResult
 import com.rsl.dictionary.services.network.ETagManager
 import com.rsl.dictionary.services.network.http.ApiJsonDecoder
 import com.rsl.dictionary.services.network.http.HttpResponseHandler
@@ -96,7 +97,7 @@ class SyncRepositoryImplMockWebServerTest {
 
         val result = repository.fetchAllData(cachedDataProvider = null)
 
-        assertEquals(data, result)
+        assertEquals(SyncFetchResult.Updated(data), result)
     }
 
     @Test
@@ -116,7 +117,7 @@ class SyncRepositoryImplMockWebServerTest {
 
         val result = repository.fetchAllData { cached }
 
-        assertSame(cached, result)
+        assertSame(cached, (result as SyncFetchResult.NotModified).data)
     }
 
     @Test(expected = SyncError.NoInternet::class)

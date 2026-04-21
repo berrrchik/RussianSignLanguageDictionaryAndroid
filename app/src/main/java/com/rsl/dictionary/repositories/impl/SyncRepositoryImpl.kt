@@ -4,6 +4,7 @@ import com.rsl.dictionary.config.ApiConfig
 import com.rsl.dictionary.errors.SyncError
 import com.rsl.dictionary.models.SyncData
 import com.rsl.dictionary.models.SyncMetadata
+import com.rsl.dictionary.repositories.protocols.SyncFetchResult
 import com.rsl.dictionary.repositories.protocols.SyncRepository
 import com.rsl.dictionary.services.network.ETagManager
 import com.rsl.dictionary.services.network.http.ApiJsonDecoder
@@ -70,7 +71,7 @@ class SyncRepositoryImpl @Inject constructor(
         }
     }
 
-    override suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncData {
+    override suspend fun fetchAllData(cachedDataProvider: (() -> SyncData?)?): SyncFetchResult {
         return try {
             val request = buildRequest(
                 url = ApiConfig.Endpoints.syncData,
@@ -85,12 +86,13 @@ class SyncRepositoryImpl @Inject constructor(
                         }
                     ) {
                         is HttpResult.NotModified -> {
-                            cachedDataProvider?.invoke() ?: throw SyncError.NoInternet
+                            val cachedData = cachedDataProvider?.invoke() ?: throw SyncError.NoInternet
+                            SyncFetchResult.NotModified(cachedData)
                         }
 
                         is HttpResult.Success -> {
                             result.etag?.let { etagManager.saveETag(SYNC_DATA_ETAG_KEY, it) }
-                            result.data
+                            SyncFetchResult.Updated(result.data)
                         }
 
                         is HttpResult.Error -> {
