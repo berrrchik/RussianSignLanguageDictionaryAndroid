@@ -3,6 +3,7 @@ package com.rsl.dictionary.ui.screens
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,14 +36,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rsl.dictionary.R
-import com.rsl.dictionary.models.SignVideo
 import com.rsl.dictionary.services.analytics.rememberAnalyticsService
 import com.rsl.dictionary.ui.components.ErrorView
 import com.rsl.dictionary.ui.components.LoadingView
 import com.rsl.dictionary.ui.components.VideoPlayerView
 import com.rsl.dictionary.ui.navigation.Screen
 import com.rsl.dictionary.viewmodels.LessonDetailViewModel
-import com.rsl.dictionary.viewmodels.VideoPlayerViewModel
+import com.rsl.dictionary.viewmodels.LessonVideoPlayerViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -51,7 +50,7 @@ fun LessonDetailScreen(
     lessonId: String,
     navController: NavController,
     viewModel: LessonDetailViewModel = hiltViewModel(),
-    videoViewModel: VideoPlayerViewModel = hiltViewModel()
+    videoViewModel: LessonVideoPlayerViewModel = hiltViewModel()
 ) {
     val analyticsService = rememberAnalyticsService()
     val lesson by viewModel.lesson.collectAsStateWithLifecycle()
@@ -73,13 +72,7 @@ fun LessonDetailScreen(
 
     LaunchedEffect(lesson?.id) {
         val currentLesson = lesson ?: return@LaunchedEffect
-        val lessonVideo = SignVideo(
-            id = currentLesson.id.hashCode(),
-            url = currentLesson.videoUrl,
-            contextDescription = "",
-            order = 0
-        )
-        videoViewModel.loadVideo(lessonVideo, isFavorite = false)
+        videoViewModel.loadVideo(currentLesson.videoUrl)
     }
 
     DisposableEffect(Unit) {
@@ -159,31 +152,33 @@ fun LessonDetailScreen(
                         ) {
                             when {
                                 isVideoLoading -> {
-                                    CircularProgressIndicator()
+                                    LoadingView(message = stringResource(R.string.loading_lesson_video))
                                 }
 
                                 videoError != null -> {
                                     ErrorView(
                                         message = videoError.orEmpty(),
                                         retryAction = {
-                                            val retryVideo = SignVideo(
-                                                id = currentLesson.id.hashCode(),
-                                                url = currentLesson.videoUrl,
-                                                contextDescription = "",
-                                                order = 0
-                                            )
-                                            videoViewModel.loadVideo(retryVideo, isFavorite = false)
+                                            videoViewModel.loadVideo(currentLesson.videoUrl)
                                         }
                                     )
                                 }
 
                                 videoUri != null -> {
-                                    VideoPlayerView(
-                                        videoUri = videoUri!!,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .aspectRatio(16f / 9f)
-                                    )
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        VideoPlayerView(
+                                            videoUri = videoUri!!,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .aspectRatio(16f / 9f)
+                                        )
+                                        Text(
+                                            text = stringResource(R.string.lesson_video_online_only),
+                                            style = MaterialTheme.typography.labelMedium,
+                                            color = MaterialTheme.colorScheme.secondary,
+                                            modifier = Modifier.padding(12.dp)
+                                        )
+                                    }
                                 }
                             }
                         }
