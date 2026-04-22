@@ -54,6 +54,7 @@ class VideoPlayerViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            _videoUri.value = null
             runCatching { videoRepository.getVideoURL(video, isFavorite) }
                 .onSuccess { _videoUri.value = it }
                 .onFailure { _error.value = ErrorMessageMapper.map(it) }

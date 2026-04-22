@@ -2,6 +2,8 @@ package com.rsl.dictionary.viewmodels
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.rsl.dictionary.models.FavoriteEntry
+import com.rsl.dictionary.models.FavoriteOfflineStatus
 import com.rsl.dictionary.models.Sign
 import com.rsl.dictionary.repositories.protocols.FavoritesRepository
 import com.rsl.dictionary.repositories.protocols.SignRepository
@@ -11,10 +13,13 @@ import com.rsl.dictionary.utilities.data.SignGroupingHelper
 import com.rsl.dictionary.utilities.data.SortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @HiltViewModel
 class FavoritesViewModel @Inject constructor(
@@ -24,6 +29,9 @@ class FavoritesViewModel @Inject constructor(
 ) : ViewModel() {
     private val _favoriteIds = MutableStateFlow<List<String>>(emptyList())
     val favoriteIds: StateFlow<List<String>> = _favoriteIds.asStateFlow()
+
+    private val _favoriteStatuses = MutableStateFlow<Map<String, FavoriteOfflineStatus>>(emptyMap())
+    val favoriteStatuses: StateFlow<Map<String, FavoriteOfflineStatus>> = _favoriteStatuses.asStateFlow()
 
     private val _favorites = MutableStateFlow<List<Sign>>(emptyList())
     val favorites: StateFlow<List<Sign>> = _favorites.asStateFlow()
@@ -39,10 +47,29 @@ class FavoritesViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            favoritesRepository.favoritesFlow.collect { favoriteIds ->
+            favoritesRepository.favoriteEntriesFlow.collect { favoriteEntries ->
+                val favoriteIds = favoriteEntries.map { it.signId }
                 _favoriteIds.value = favoriteIds
-                loadFavoriteSigns(favoriteIds)
+                _favoriteStatuses.value = favoriteEntries.associate { it.signId to it.status }
+                Timber.d(
+                    "FavoritesViewModel: favoriteEntriesFlow emitted ids=%s statuses=%s",
+                    favoriteIds,
+                    _favoriteStatuses.value
+                )
+                loadFavoriteSigns(favoriteEntries)
             }
+        }
+
+        viewModelScope.launch {
+            signRepository.syncData
+                .filterNotNull()
+                .drop(1)
+                .collect { syncData ->
+                    presentFavoriteSigns(
+                        allSigns = syncData.signs,
+                        favoriteEntries = favoritesRepository.getEntries()
+                    )
+                }
         }
     }
 
@@ -51,8 +78,8 @@ class FavoritesViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
             runCatching {
-                favorites.value.forEach { sign ->
-                    videoRepository.clearFavoritesCache(sign)
+                favoritesRepository.getEntries().forEach { entry ->
+                    videoRepository.removeFavoriteOffline(entry)
                 }
                 favoritesRepository.clearAll()
             }.onFailure {
@@ -64,30 +91,87 @@ class FavoritesViewModel @Inject constructor(
 
     fun retryLoadingFavorites() {
         viewModelScope.launch {
-            loadFavoriteSigns(favoriteIds.value)
+            loadFavoriteSigns(favoritesRepository.getEntries())
         }
     }
 
-    private suspend fun loadFavoriteSigns(favoriteIds: List<String>) {
+    private suspend fun loadFavoriteSigns(favoriteEntries: List<FavoriteEntry>) {
+        val favoriteIds = favoriteEntries.map { it.signId }
+        if (favoriteIds.isEmpty()) {
+            Timber.d("FavoritesViewModel: no favorite ids, showing empty state")
+            _favorites.value = emptyList()
+            _groupedFavorites.value = emptyMap()
+            _error.value = null
+            _isLoading.value = false
+            return
+        }
+
         _isLoading.value = true
         _error.value = null
+        Timber.d("FavoritesViewModel: loading favorite signs ids=%s", favoriteIds)
 
         runCatching {
-            val allSignsById = signRepository.getAllSigns().associateBy { it.id }
-            favoriteIds.mapNotNull { allSignsById[it] }
-        }.onSuccess { loadedFavorites ->
-            _favorites.value = loadedFavorites
-            _groupedFavorites.value = SignGroupingHelper.groupByFirstLetter(
-                SignGroupingHelper.sortSignsAlphabetically(
-                    loadedFavorites,
-                    SortOrder.ASCENDING
-                ),
-                SortOrder.ASCENDING
+            presentFavoriteSigns(
+                allSigns = signRepository.getAllSigns(),
+                favoriteEntries = favoriteEntries
             )
-        }.onFailure {
-            _error.value = ErrorMessageMapper.map(it)
+        }.onSuccess { loadedFavorites ->
+            loadedFavorites
+        }.onFailure { error ->
+            val cachedFavoritesById = favoritesRepository.getCachedSigns().associateBy { it.id }
+            val cachedFavorites = favoriteIds.mapNotNull { cachedFavoritesById[it] }
+
+            if (cachedFavorites.isNotEmpty()) {
+                Timber.w(
+                    error,
+                    "FavoritesViewModel: falling back to %d cached favorite snapshots for ids=%s",
+                    cachedFavorites.size,
+                    favoriteIds
+                )
+                _favorites.value = cachedFavorites
+                _groupedFavorites.value = SignGroupingHelper.groupByFirstLetter(
+                    SignGroupingHelper.sortSignsAlphabetically(
+                        cachedFavorites,
+                        SortOrder.ASCENDING
+                    ),
+                    SortOrder.ASCENDING
+                )
+            } else {
+                Timber.e(
+                    error,
+                    "FavoritesViewModel: failed to load favorites and no cached snapshots available, ids=%s",
+                    favoriteIds
+                )
+                _favorites.value = emptyList()
+                _groupedFavorites.value = emptyMap()
+                _error.value = ErrorMessageMapper.map(error)
+            }
         }
 
         _isLoading.value = false
+    }
+
+    private suspend fun presentFavoriteSigns(
+        allSigns: List<Sign>,
+        favoriteEntries: List<FavoriteEntry>
+    ): List<Sign> {
+        val favoriteIds = favoriteEntries.map { it.signId }
+        val allSignsById = allSigns.associateBy { it.id }
+        val loadedFavorites = favoriteIds.mapNotNull { allSignsById[it] }
+        favoritesRepository.cacheSigns(loadedFavorites)
+        Timber.d(
+            "FavoritesViewModel: loaded %d favorites from SignRepository",
+            loadedFavorites.size
+        )
+        _favorites.value = loadedFavorites
+        _groupedFavorites.value = SignGroupingHelper.groupByFirstLetter(
+            SignGroupingHelper.sortSignsAlphabetically(
+                loadedFavorites,
+                SortOrder.ASCENDING
+            ),
+            SortOrder.ASCENDING
+        )
+        _error.value = null
+        return loadedFavorites
     }
 }
