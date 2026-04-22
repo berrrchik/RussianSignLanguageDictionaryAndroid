@@ -4,6 +4,9 @@ import android.content.Context
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.rsl.dictionary.errors.VideoRepositoryError
+import com.rsl.dictionary.models.FavoriteEntry
+import com.rsl.dictionary.models.FavoriteOfflineStatus
+import com.rsl.dictionary.models.FavoriteOfflineVideo
 import com.rsl.dictionary.services.cache.VideoCacheDirectoryManager
 import com.rsl.dictionary.services.cache.VideoCacheService
 import com.rsl.dictionary.services.network.NetworkMonitor
@@ -95,7 +98,7 @@ class VideoRepositoryImplTest {
     }
 
     @Test
-    fun prefetchVideos_startsFavoritesPrefetchForEachVideo() = runTest {
+    fun prepareFavoriteOffline_returnsReadyOnlyAfterAllVideosDownloaded() = runTest {
         val sign = TestDataFactory.sign(
             videos = listOf(
                 TestDataFactory.video(id = 10, url = "a.mp4"),
@@ -104,33 +107,66 @@ class VideoRepositoryImplTest {
         )
         val favoritesDir = VideoCacheDirectoryManager.favoritesDir(context)
         every { videoCacheService.getFromMemory(any()) } returns null
-        coEvery { videoCacheService.isCached(any(), favoritesDir) } returns false
-        coEvery { videoCacheService.getOrDownload(any(), favoritesDir, context) } returns mockk()
+        coEvery {
+            videoCacheService.getOrDownload(TestDataFactory.video(id = 10, url = "a.mp4"), favoritesDir, context)
+        } returns Uri.fromFile(File(favoritesDir, "video_10.mp4").apply { writeText("a") })
+        coEvery {
+            videoCacheService.getOrDownload(TestDataFactory.video(id = 20, url = "b.mp4"), favoritesDir, context)
+        } returns Uri.fromFile(File(favoritesDir, "video_20.mp4").apply { writeText("b") })
 
-        repository.prefetchVideos(sign)
+        val result = repository.prepareFavoriteOffline(sign)
 
-        coVerify(timeout = 2_000, exactly = 2) {
-            videoCacheService.getOrDownload(any(), favoritesDir, context)
-        }
+        assertTrue(result is com.rsl.dictionary.repositories.protocols.FavoriteOfflinePreparationResult.Ready)
+        assertEquals(
+            listOf(10, 20),
+            (result as com.rsl.dictionary.repositories.protocols.FavoriteOfflinePreparationResult.Ready)
+                .downloadedVideos
+                .map { it.videoId }
+        )
     }
 
     @Test
-    fun clearFavoritesCache_deletesAllSignFiles() = runTest {
-        val sign = TestDataFactory.sign(
-            videos = listOf(
-                TestDataFactory.video(id = 30, url = "a.mp4"),
-                TestDataFactory.video(id = 31, url = "b.mp4")
-            )
+    fun prepareFavoriteOffline_returnsFailedWhenAnyVideoDownloadFails() = runTest {
+        val firstVideo = TestDataFactory.video(id = 30, url = "a.mp4")
+        val secondVideo = TestDataFactory.video(id = 31, url = "b.mp4")
+        val sign = TestDataFactory.sign(videos = listOf(firstVideo, secondVideo))
+        val favoritesDir = VideoCacheDirectoryManager.favoritesDir(context)
+        every { videoCacheService.getFromMemory(any()) } returns null
+        coEvery { videoCacheService.getOrDownload(firstVideo, favoritesDir, context) } returns
+            Uri.fromFile(File(favoritesDir, "video_30.mp4").apply { writeText("cached") })
+        coEvery { videoCacheService.getOrDownload(secondVideo, favoritesDir, context) } throws
+            IOException("boom")
+
+        val result = repository.prepareFavoriteOffline(sign)
+
+        assertTrue(result is com.rsl.dictionary.repositories.protocols.FavoriteOfflinePreparationResult.Failed)
+        result as com.rsl.dictionary.repositories.protocols.FavoriteOfflinePreparationResult.Failed
+        assertEquals(listOf(30), result.downloadedVideos.map { it.videoId })
+        assertTrue(result.error is VideoRepositoryError.DownloadFailed)
+        assertEquals("boom", result.error.cause?.message)
+    }
+
+    @Test
+    fun removeFavoriteOffline_deletesTrackedFilesFromManifest() = runTest {
+        val entry = FavoriteEntry(
+            signId = "sign-1",
+            status = FavoriteOfflineStatus.READY_OFFLINE,
+            requiredVideoIds = listOf(30, 31),
+            downloadedVideos = listOf(
+                FavoriteOfflineVideo(videoId = 30, fileName = "video_30.mp4"),
+                FavoriteOfflineVideo(videoId = 31, fileName = "video_31.mp4")
+            ),
+            updatedAt = 1L
         )
         val favoritesDir = VideoCacheDirectoryManager.favoritesDir(context)
-        sign.videosArray.forEach { video ->
-            File(favoritesDir, "video_${video.id}.mp4").writeText("cached")
+        entry.downloadedVideos.forEach { video ->
+            File(favoritesDir, "video_${video.videoId}.mp4").writeText("cached")
         }
 
-        repository.clearFavoritesCache(sign)
+        repository.removeFavoriteOffline(entry)
 
-        sign.videosArray.forEach { video ->
-            assertTrue(!File(favoritesDir, "video_${video.id}.mp4").exists())
+        entry.downloadedVideos.forEach { video ->
+            assertTrue(!File(favoritesDir, "video_${video.videoId}.mp4").exists())
         }
     }
 

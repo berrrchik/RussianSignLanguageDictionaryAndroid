@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.util.concurrent.TimeUnit
+import timber.log.Timber
 
 class VideoCacheService @Inject constructor(
     private val okHttpClient: OkHttpClient,
@@ -33,6 +34,15 @@ class VideoCacheService @Inject constructor(
             .build()
     }
 
+    init {
+        Timber.d(
+            "VideoCacheService: initialized (timeouts: connect=%ss read=%ss call=%ss)",
+            VIDEO_CONNECT_TIMEOUT_SECONDS,
+            VIDEO_READ_TIMEOUT_SECONDS,
+            VIDEO_CALL_TIMEOUT_SECONDS
+        )
+    }
+
     fun getFromMemory(video: SignVideo): Uri? = inMemoryCache.get(video.id)
 
     fun clearInMemoryCache() {
@@ -42,12 +52,18 @@ class VideoCacheService @Inject constructor(
     suspend fun getOrDownload(video: SignVideo, targetDir: File, context: Context): Uri {
         val cachedInMemory = inMemoryCache.get(video.id)
         if (cachedInMemory != null) {
+            Timber.d("VideoCacheService: memory cache hit for videoId=%d", video.id)
             touchFile(cachedInMemory)
             return cachedInMemory
         }
 
         val targetFile = videoFile(video, targetDir)
         if (targetFile.exists()) {
+            Timber.d(
+                "VideoCacheService: disk cache hit for videoId=%d path=%s",
+                video.id,
+                targetFile.absolutePath
+            )
             return Uri.fromFile(targetFile).also { uri ->
                 targetFile.setLastModified(System.currentTimeMillis())
                 inMemoryCache.put(video.id, uri)
@@ -55,10 +71,16 @@ class VideoCacheService @Inject constructor(
         }
 
         targetDir.mkdirs()
+        logDirectoryState("before download", targetDir)
         val downloadedUri = videoDownloadCoordinator.download(video.id, downloadScope) {
             downloadVideo(video, targetFile, context)
         }
         inMemoryCache.put(video.id, downloadedUri)
+        Timber.d(
+            "VideoCacheService: cached downloaded videoId=%d in memory and disk path=%s",
+            video.id,
+            targetFile.absolutePath
+        )
 
         FileCacheLRU.enforceSizeLimit(
             directory = targetDir,
@@ -70,17 +92,32 @@ class VideoCacheService @Inject constructor(
     }
 
     suspend fun isCached(video: SignVideo, directory: File): Boolean = withContext(Dispatchers.IO) {
-        videoFile(video, directory).exists()
+        val targetFile = videoFile(video, directory)
+        val exists = targetFile.exists()
+        Timber.d(
+            "VideoCacheService: cache lookup videoId=%d dir=%s exists=%s",
+            video.id,
+            directory.absolutePath,
+            exists
+        )
+        exists
     }
 
     suspend fun clearDirectory(directory: File) = withContext(Dispatchers.IO) {
         directory.listFiles()?.forEach { file ->
             VideoCacheDirectoryManager.deleteFile(file)
         }
+        Timber.d("VideoCacheService: cleared directory=%s", directory.absolutePath)
     }
 
     private suspend fun downloadVideo(video: SignVideo, targetFile: File, context: Context): Uri {
         val resolvedUrl = ApiConfig.videoUrl(video.url) ?: throw VideoRepositoryError.UrlNotFound
+        Timber.d(
+            "VideoCacheService: downloading videoId=%d from %s to %s",
+            video.id,
+            resolvedUrl,
+            targetFile.absolutePath
+        )
         return withContext(Dispatchers.IO) {
             val request = Request.Builder()
                 .url(resolvedUrl)
@@ -99,6 +136,12 @@ class VideoCacheService @Inject constructor(
                     }
                 }
                 targetFile.setLastModified(System.currentTimeMillis())
+                Timber.d(
+                    "VideoCacheService: saved videoId=%d sizeKb=%d path=%s",
+                    video.id,
+                    targetFile.length() / 1024,
+                    targetFile.absolutePath
+                )
                 Uri.fromFile(targetFile)
             }
         }
@@ -120,6 +163,17 @@ class VideoCacheService @Inject constructor(
         } else {
             FileCacheLRU.SHORT_TERM_MAX_SIZE_BYTES
         }
+    }
+
+    private fun logDirectoryState(stage: String, directory: File) {
+        val fileNames = directory.listFiles()?.map { it.name }.orEmpty()
+        Timber.d(
+            "VideoCacheService: %s dir=%s fileCount=%d files=%s",
+            stage,
+            directory.absolutePath,
+            fileNames.size,
+            fileNames
+        )
     }
 
     private companion object {

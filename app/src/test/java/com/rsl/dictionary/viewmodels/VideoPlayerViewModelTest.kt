@@ -44,4 +44,18 @@ class VideoPlayerViewModelTest {
         assertEquals("Видео сейчас недоступно", viewModel.error.value)
         assertNull(viewModel.videoUri.value)
     }
+
+    @Test
+    fun loadVideo_mapsNoInternetToCacheAwareMessage() = runTest {
+        val video = TestDataFactory.video(id = 2, url = "new.mp4")
+        coEvery {
+            videoRepository.getVideoURL(video, false)
+        } throws VideoRepositoryError.NoInternet
+
+        viewModel.loadVideo(video, isFavorite = false)
+        advanceUntilIdle()
+
+        assertEquals("Для загрузки нового видео требуется сеть", viewModel.error.value)
+        assertNull(viewModel.videoUri.value)
+    }
 }
