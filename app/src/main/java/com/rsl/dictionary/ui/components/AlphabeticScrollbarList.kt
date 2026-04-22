@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.rsl.dictionary.models.FavoriteOfflineStatus
 import com.rsl.dictionary.models.Category
 import com.rsl.dictionary.models.Sign
 import kotlinx.coroutines.CoroutineScope
@@ -43,6 +44,7 @@ fun AlphabeticScrollbarList(
     groupedSigns: Map<String, List<Sign>>,
     categories: List<Category>,
     favorites: List<String>,
+    favoriteStatuses: Map<String, FavoriteOfflineStatus> = emptyMap(),
     onSignClick: (Sign) -> Unit
 ) {
     val lazyListState = rememberLazyListState()
@@ -87,6 +89,7 @@ fun AlphabeticScrollbarList(
                         sign = sign,
                         categoryName = categoriesById[sign.categoryId]?.name.orEmpty(),
                         isFavorite = sign.id in favorites,
+                        favoriteStatus = favoriteStatuses[sign.id],
                         onClick = { onSignClick(sign) }
                     )
                 }

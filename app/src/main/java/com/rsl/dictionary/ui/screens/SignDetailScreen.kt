@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -48,6 +49,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import com.rsl.dictionary.R
+import com.rsl.dictionary.models.FavoriteOfflineStatus
 import com.rsl.dictionary.models.SignSynonym
 import com.rsl.dictionary.services.analytics.rememberAnalyticsService
 import com.rsl.dictionary.ui.components.ErrorView
@@ -70,6 +72,8 @@ fun SignDetailScreen(
     val analyticsService = rememberAnalyticsService()
     val sign by viewModel.sign.collectAsStateWithLifecycle()
     val isFavorite by viewModel.isFavorite.collectAsStateWithLifecycle()
+    val favoriteOfflineStatus by viewModel.favoriteOfflineStatus.collectAsStateWithLifecycle()
+    val isFavoriteActionInProgress by viewModel.isFavoriteActionInProgress.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val visitedSignIds by viewModel.visitedSignIds.collectAsStateWithLifecycle()
@@ -81,6 +85,7 @@ fun SignDetailScreen(
     val videoUri by videoViewModel.videoUri.collectAsStateWithLifecycle()
     val isVideoLoading by videoViewModel.isLoading.collectAsStateWithLifecycle()
     val videoError by videoViewModel.error.collectAsStateWithLifecycle()
+    val useFavoritesCache = favoriteOfflineStatus == FavoriteOfflineStatus.READY_OFFLINE
 
     var isLoadingSynonym by rememberSaveable { mutableStateOf(false) }
     var synonymError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -98,7 +103,7 @@ fun SignDetailScreen(
         val currentSign = sign ?: return@LaunchedEffect
         if (currentSign.videosArray.isNotEmpty()) {
             videoViewModel.currentVideoIndex.value = 0
-            videoViewModel.loadVideo(currentSign.videosArray.first(), isFavorite)
+            videoViewModel.loadVideo(currentSign.videosArray.first(), useFavoritesCache)
         }
     }
 
@@ -165,7 +170,10 @@ fun SignDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { viewModel.toggleFavorite() }) {
+                    IconButton(
+                        onClick = { viewModel.toggleFavorite() },
+                        enabled = !isFavoriteActionInProgress
+                    ) {
                         Icon(
                             imageVector = if (isFavorite) {
                                 Icons.Default.Favorite
@@ -243,7 +251,7 @@ fun SignDetailScreen(
                                             message = videoError.orEmpty(),
                                             retryAction = {
                                                 currentVideo?.let {
-                                                    videoViewModel.loadVideo(it, isFavorite)
+                                                    videoViewModel.loadVideo(it, useFavoritesCache)
                                                 }
                                             },
                                             skipAction = if (currentVideoIndex < videos.lastIndex) {
@@ -251,7 +259,7 @@ fun SignDetailScreen(
                                                     val nextIndex = currentVideoIndex + 1
                                                     videoViewModel.currentVideoIndex.value = nextIndex
                                                     videos.getOrNull(nextIndex)?.let {
-                                                        videoViewModel.loadVideo(it, isFavorite)
+                                                        videoViewModel.loadVideo(it, useFavoritesCache)
                                                     }
                                                 }
                                             } else {
@@ -281,14 +289,14 @@ fun SignDetailScreen(
                                         val previousIndex = currentVideoIndex - 1
                                         videoViewModel.currentVideoIndex.value = previousIndex
                                         videos.getOrNull(previousIndex)?.let {
-                                            videoViewModel.loadVideo(it, isFavorite)
+                                            videoViewModel.loadVideo(it, useFavoritesCache)
                                         }
                                     },
                                     onNext = {
                                         val nextIndex = currentVideoIndex + 1
                                         videoViewModel.currentVideoIndex.value = nextIndex
                                         videos.getOrNull(nextIndex)?.let {
-                                            videoViewModel.loadVideo(it, isFavorite)
+                                            videoViewModel.loadVideo(it, useFavoritesCache)
                                         }
                                     }
                                 )
@@ -339,6 +347,25 @@ fun SignDetailScreen(
                                     text = categoryName,
                                     style = MaterialTheme.typography.labelSmall
                                 )
+                            }
+
+                            favoriteOfflineStatus
+                                ?.takeIf { it != FavoriteOfflineStatus.READY_OFFLINE }
+                                ?.let { status ->
+                                Row(
+                                    modifier = Modifier
+                                        .padding(top = 12.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(favoriteStatusBackground(status))
+                                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        text = favoriteStatusLabel(status),
+                                        style = MaterialTheme.typography.labelMedium,
+                                        color = favoriteStatusTextColor(status)
+                                    )
+                                }
                             }
 
                             if (visibleSynonyms.isNotEmpty()) {
@@ -410,4 +437,22 @@ fun SignDetailScreen(
             }
         }
     }
+}
+
+private fun favoriteStatusLabel(status: FavoriteOfflineStatus): String = when (status) {
+    FavoriteOfflineStatus.PENDING -> "Подготавливается для офлайн"
+        FavoriteOfflineStatus.READY_OFFLINE -> ""
+    FavoriteOfflineStatus.FAILED -> "Не удалось подготовить офлайн"
+}
+
+private fun favoriteStatusBackground(status: FavoriteOfflineStatus) = when (status) {
+    FavoriteOfflineStatus.PENDING -> Color(0xFFFFF3E0)
+    FavoriteOfflineStatus.READY_OFFLINE -> Color(0xFFE6F4EA)
+    FavoriteOfflineStatus.FAILED -> Color(0xFFFDECEA)
+}
+
+private fun favoriteStatusTextColor(status: FavoriteOfflineStatus) = when (status) {
+    FavoriteOfflineStatus.PENDING -> Color(0xFFB26A00)
+    FavoriteOfflineStatus.READY_OFFLINE -> Color(0xFF1E7D32)
+    FavoriteOfflineStatus.FAILED -> Color(0xFFB3261E)
 }

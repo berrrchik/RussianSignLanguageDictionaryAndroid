@@ -47,7 +47,7 @@ fun CategoryDetailScreen(
     val categoriesViewModel: CategoriesViewModel = hiltViewModel()
     val favoritesViewModel: FavoritesViewModel = hiltViewModel()
     val categories by categoriesViewModel.categories.collectAsStateWithLifecycle()
-    val favorites by favoritesViewModel.favorites.collectAsStateWithLifecycle()
+    val favoriteIds by favoritesViewModel.favoriteIds.collectAsStateWithLifecycle()
     val categoryTitle = categories.firstOrNull { it.id == categoryId }?.name ?: ""
 
     LaunchedEffect(categoryId) {
@@ -100,7 +100,7 @@ fun CategoryDetailScreen(
                     AlphabeticScrollbarList(
                         groupedSigns = groupedSigns,
                         categories = categories,
-                        favorites = favorites.map { it.id },
+                        favorites = favoriteIds,
                         onSignClick = { sign ->
                             navController.navigate(Screen.SignDetail.createRoute(sign.id))
                         }

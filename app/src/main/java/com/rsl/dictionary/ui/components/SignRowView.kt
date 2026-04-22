@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.rsl.dictionary.models.FavoriteOfflineStatus
 import com.rsl.dictionary.models.Sign
 
 @Composable
@@ -36,6 +37,7 @@ fun SignRowView(
     sign: Sign,
     categoryName: String,
     isFavorite: Boolean,
+    favoriteStatus: FavoriteOfflineStatus? = null,
     onClick: () -> Unit
 ) {
     Column(
@@ -46,7 +48,6 @@ fun SignRowView(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(80.dp)
                 .clip(RoundedCornerShape(12.dp))
                 .clickable(onClick = onClick)
                 .semantics { contentDescription = "Жест ${sign.word}" }
@@ -89,6 +90,12 @@ fun SignRowView(
                             .padding(horizontal = 8.dp, vertical = 4.dp)
                     )
                 }
+                favoriteStatus
+                    ?.takeIf { it != FavoriteOfflineStatus.READY_OFFLINE }
+                    ?.let { status ->
+                        Spacer(modifier = Modifier.height(6.dp))
+                        FavoriteOfflineStatusChip(status)
+                    }
             }
 
             if (isFavorite) {
@@ -109,4 +116,39 @@ fun SignRowView(
             thickness = 1.dp
         )
     }
+}
+
+@Composable
+private fun FavoriteOfflineStatusChip(
+    status: FavoriteOfflineStatus
+) {
+    val (label, backgroundColor, textColor) = when (status) {
+        FavoriteOfflineStatus.PENDING -> Triple(
+            "Подготовка офлайн",
+            Color(0xFFFFF3E0),
+            Color(0xFFB26A00)
+        )
+
+        FavoriteOfflineStatus.READY_OFFLINE -> Triple(
+            "Доступно офлайн",
+            Color(0xFFE6F4EA),
+            Color(0xFF1E7D32)
+        )
+
+        FavoriteOfflineStatus.FAILED -> Triple(
+            "Офлайн не готов",
+            Color(0xFFFDECEA),
+            Color(0xFFB3261E)
+        )
+    }
+
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelSmall,
+        color = textColor,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(backgroundColor)
+            .padding(horizontal = 8.dp, vertical = 4.dp)
+    )
 }
