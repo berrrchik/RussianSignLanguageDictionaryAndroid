@@ -8,11 +8,13 @@ import com.rsl.dictionary.models.SyncData
 import com.rsl.dictionary.repositories.decorators.LoggingSyncRepositoryDecorator
 import com.rsl.dictionary.repositories.impl.FavoritesRepositoryImpl
 import com.rsl.dictionary.repositories.impl.LessonRepositoryImpl
+import com.rsl.dictionary.repositories.impl.LessonVideoRepositoryImpl
 import com.rsl.dictionary.repositories.impl.SignRepositoryImpl
 import com.rsl.dictionary.repositories.impl.SyncRepositoryImpl
 import com.rsl.dictionary.repositories.impl.VideoRepositoryImpl
 import com.rsl.dictionary.repositories.protocols.FavoritesRepository
 import com.rsl.dictionary.repositories.protocols.LessonRepository
+import com.rsl.dictionary.repositories.protocols.LessonVideoRepository
 import com.rsl.dictionary.repositories.protocols.SignRepository
 import com.rsl.dictionary.repositories.protocols.SyncRepository
 import com.rsl.dictionary.repositories.protocols.VideoRepository
@@ -57,7 +59,7 @@ object AppModule {
     @Singleton
     fun provideOkHttpClient(): OkHttpClient {
         return OkHttpClient.Builder()
-            .connectTimeout(15, TimeUnit.SECONDS)
+            .connectTimeout(5, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .build()
     }
@@ -167,6 +169,15 @@ object AppModule {
     @Singleton
     fun provideLessonRepository(signRepo: SignRepository): LessonRepository {
         return LessonRepositoryImpl(signRepo)
+    }
+
+    @Provides
+    @Singleton
+    fun provideLessonVideoRepository(
+        okHttpClient: OkHttpClient,
+        networkMonitor: NetworkMonitor
+    ): LessonVideoRepository {
+        return LessonVideoRepositoryImpl(okHttpClient, networkMonitor)
     }
 
     @Provides
