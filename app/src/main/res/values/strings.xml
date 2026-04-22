@@ -9,6 +9,7 @@
     <string name="loading_categories">Загрузка категорий...</string>
     <string name="loading_signs">Загрузка жестов...</string>
     <string name="loading_video">Загрузка видео...</string>
+    <string name="loading_lesson_video">Загрузка видео урока...</string>
     <string name="loading_favorites">Загрузка избранного...</string>
     <string name="loading_lessons">Загрузка уроков...</string>
     <string name="loading_synonym">Загрузка синонима...</string>
@@ -34,6 +35,7 @@
     <string name="remove_from_favorites">Удалить из избранного</string>
     <string name="clear_all_favorites">Очистить все избранное</string>
     <string name="in_favorites">В избранном</string>
+    <string name="favorites_offline_hint">Жесты, сохранённые в избранное, можно посмотреть без интернета.</string>
     <string name="clear">Очистить</string>
     <string name="cancel">Отмена</string>
     <string name="error">Ошибка</string>
@@ -55,11 +57,15 @@
     <string name="official_website">Официальный сайт</string>
     <string name="contacts">Контакты</string>
     <string name="settings">Настройки</string>
-    <string name="clear_cache">Очистить кэш</string>
-    <string name="clear_cache_title">Очистить кэш?</string>
-    <string name="clear_cache_message">Все закэшированные видео будут удалены. Это действие нельзя отменить.</string>
+    <string name="clear_cache">Очистить временный видеокеш</string>
+    <string name="clear_cache_title">Очистить временный видеокеш?</string>
+    <string name="clear_cache_message">Будут удалены только временно кешированные видео жестов. Избранное офлайн не затрагивается.</string>
     <string name="cache_cleared_title">Кэш очищен</string>
-    <string name="cache_cleared_message">Кэш успешно очищен</string>
+    <string name="cache_cleared_message">Временный кэш успешно очищен</string>
+    <string name="short_term_cache_size_format">Временный кэш: %1$s</string>
+    <string name="favorites_offline_size_label">Избранное офлайн</string>
+    <string name="clear_cache_scope_hint">Удаляет временно кешированные видео. Избранное офлайн не затрагивается.</string>
+    <string name="lesson_video_online_only">Видео урока воспроизводится только при наличии интернета и не сохраняется в кэш.</string>
     <string name="sync_error_title">Ошибка синхронизации</string>
     <string name="offline_status_message">Нет соединения с сервером</string>
     <string name="offline_status_icon_description">Приложение работает офлайн</string>
