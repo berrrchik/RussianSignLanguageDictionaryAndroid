@@ -10,6 +10,9 @@ import com.rsl.dictionary.utilities.data.SignGroupingHelper
 import com.rsl.dictionary.utilities.data.SortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,8 +21,10 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class CategoryDetailViewModel @Inject constructor(
     private val signRepository: SignRepository,
-    savedStateHandle: SavedStateHandle
+    private val savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+    private val currentCategoryId = MutableStateFlow<String?>(null)
+    private var loadDataJob: Job? = null
 
     private val _signs = MutableStateFlow<List<Sign>>(emptyList())
     val signs: StateFlow<List<Sign>> = _signs.asStateFlow()
@@ -34,28 +39,54 @@ class CategoryDetailViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     init {
+        viewModelScope.launch {
+            combine(
+                currentCategoryId.filterNotNull(),
+                signRepository.syncData.filterNotNull()
+            ) { categoryId, syncData ->
+                syncData.signs.filter { it.categoryId == categoryId }
+            }.collect { categorySigns ->
+                _signs.value = categorySigns
+                _groupedSigns.value = SignGroupingHelper.groupByFirstLetter(
+                    SignGroupingHelper.sortSignsAlphabetically(
+                        categorySigns,
+                        SortOrder.ASCENDING
+                    ),
+                    SortOrder.ASCENDING
+                )
+                _error.value = null
+                _isLoading.value = false
+            }
+        }
+
         savedStateHandle.get<String>("categoryId")?.let { categoryId ->
             loadSigns(categoryId)
         }
     }
 
     fun loadSigns(categoryId: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            runCatching { signRepository.getSignsByCategory(categoryId) }
-                .onSuccess { loadedSigns ->
-                    _signs.value = loadedSigns
-                    _groupedSigns.value = SignGroupingHelper.groupByFirstLetter(
-                        SignGroupingHelper.sortSignsAlphabetically(
-                            loadedSigns,
-                            SortOrder.ASCENDING
-                        ),
-                        SortOrder.ASCENDING
-                    )
-                }
-                .onFailure { _error.value = ErrorMessageMapper.map(it) }
+        savedStateHandle["categoryId"] = categoryId
+        currentCategoryId.value = categoryId
+        _error.value = null
+
+        if (signRepository.syncData.value != null) {
             _isLoading.value = false
+            return
+        }
+
+        if (loadDataJob?.isActive == true) return
+
+        _isLoading.value = true
+        loadDataJob = viewModelScope.launch {
+            runCatching { signRepository.loadDataWithSync() }
+                .onFailure { throwable ->
+                    if (signRepository.syncData.value == null) {
+                        _signs.value = emptyList()
+                        _groupedSigns.value = emptyMap()
+                        _error.value = ErrorMessageMapper.map(throwable)
+                        _isLoading.value = false
+                    }
+                }
         }
     }
 }

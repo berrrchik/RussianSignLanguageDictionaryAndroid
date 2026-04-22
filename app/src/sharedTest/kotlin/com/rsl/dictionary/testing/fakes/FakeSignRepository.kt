@@ -13,13 +13,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 class FakeSignRepository(
-    private var currentData: SyncData = TestDataFactory.syncData()
+    private var currentData: SyncData = TestDataFactory.syncData(),
+    initialSyncData: SyncData? = currentData
 ) : SignRepository {
     var loadDataWithSyncCalls: Int = 0
         private set
     val refreshCalls = mutableListOf<RefreshReason>()
 
-    private val _syncData = MutableStateFlow<SyncData?>(currentData)
+    private val _syncData = MutableStateFlow<SyncData?>(initialSyncData)
     override val syncData: StateFlow<SyncData?> = _syncData.asStateFlow()
 
     private val _dataStatus = MutableStateFlow<RepositoryDataStatus>(RepositoryDataStatus.Idle)
