@@ -23,8 +23,11 @@ class SettingsViewModel @Inject constructor(
     private val videoRepository: VideoRepository
 ) : ViewModel() {
 
-    private val _cacheSize = MutableStateFlow("0.0 MB")
-    val cacheSize: StateFlow<String> = _cacheSize.asStateFlow()
+    private val _shortTermCacheSize = MutableStateFlow("0.0 MB")
+    val shortTermCacheSize: StateFlow<String> = _shortTermCacheSize.asStateFlow()
+
+    private val _favoritesOfflineSize = MutableStateFlow("0.0 MB")
+    val favoritesOfflineSize: StateFlow<String> = _favoritesOfflineSize.asStateFlow()
 
     private val _isCacheClearing = MutableStateFlow(false)
     val isCacheClearing: StateFlow<Boolean> = _isCacheClearing.asStateFlow()
@@ -58,8 +61,8 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val shortTermSize = directorySize(VideoCacheDirectoryManager.shortTermDir(context))
             val favoritesSize = directorySize(VideoCacheDirectoryManager.favoritesDir(context))
-            val totalSizeMb = (shortTermSize + favoritesSize).toDouble() / (1024 * 1024)
-            _cacheSize.value = String.format(Locale.US, "%.1f MB", totalSizeMb)
+            _shortTermCacheSize.value = formatSize(shortTermSize)
+            _favoritesOfflineSize.value = formatSize(favoritesSize)
         }
     }
 
@@ -67,5 +70,10 @@ class SettingsViewModel @Inject constructor(
         return directory.listFiles()?.sumOf { file ->
             if (file.isDirectory) directorySize(file) else file.length()
         } ?: 0L
+    }
+
+    private fun formatSize(sizeBytes: Long): String {
+        val sizeMb = sizeBytes.toDouble() / (1024 * 1024)
+        return String.format(Locale.US, "%.1f MB", sizeMb)
     }
 }

@@ -43,6 +43,8 @@ fun SettingsScreen(
     val analyticsService = rememberAnalyticsService()
     val context = LocalContext.current
     val isCacheClearing by viewModel.isCacheClearing.collectAsStateWithLifecycle()
+    val shortTermCacheSize by viewModel.shortTermCacheSize.collectAsStateWithLifecycle()
+    val favoritesOfflineSize by viewModel.favoritesOfflineSize.collectAsStateWithLifecycle()
     val showCacheClearedDialog by viewModel.showCacheCleared.collectAsStateWithLifecycle()
 
     var showClearCacheDialog by remember { mutableStateOf(false) }
@@ -145,7 +147,24 @@ fun SettingsScreen(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.error
                 )
+                Text(
+                    text = stringResource(R.string.short_term_cache_size_format, shortTermCacheSize),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+                Text(
+                    text = stringResource(R.string.clear_cache_scope_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
             }
+        }
+        item {
+            AuthorInfoRow(
+                label = stringResource(R.string.favorites_offline_size_label),
+                value = favoritesOfflineSize
+            )
         }
     }
 
