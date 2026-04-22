@@ -6,14 +6,17 @@ import com.rsl.dictionary.models.FavoriteEntry
 import com.rsl.dictionary.models.FavoriteOfflineStatus
 import com.rsl.dictionary.models.Sign
 import com.rsl.dictionary.repositories.protocols.FavoritesRepository
+import com.rsl.dictionary.repositories.protocols.FavoriteOfflinePreparationResult
 import com.rsl.dictionary.repositories.protocols.SignRepository
 import com.rsl.dictionary.repositories.protocols.VideoRepository
+import com.rsl.dictionary.services.network.NetworkMonitor
 import com.rsl.dictionary.utilities.ErrorMessageMapper
 import com.rsl.dictionary.utilities.data.SignGroupingHelper
 import com.rsl.dictionary.utilities.data.SortOrder
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,7 +28,8 @@ import timber.log.Timber
 class FavoritesViewModel @Inject constructor(
     private val favoritesRepository: FavoritesRepository,
     private val signRepository: SignRepository,
-    private val videoRepository: VideoRepository
+    private val videoRepository: VideoRepository,
+    private val networkMonitor: NetworkMonitor
 ) : ViewModel() {
     private val _favoriteIds = MutableStateFlow<List<String>>(emptyList())
     val favoriteIds: StateFlow<List<String>> = _favoriteIds.asStateFlow()
@@ -45,6 +49,10 @@ class FavoritesViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
+    // Храним timestamp последней синхронизации при которой запускали retry,
+    // чтобы не запускать его дважды если syncData эмитит одно и то же значение.
+    private var lastRetriedSyncTimestamp = 0L
+
     init {
         viewModelScope.launch {
             favoritesRepository.favoriteEntriesFlow.collect { favoriteEntries ->
@@ -63,12 +71,31 @@ class FavoritesViewModel @Inject constructor(
         viewModelScope.launch {
             signRepository.syncData
                 .filterNotNull()
-                .drop(1)
                 .collect { syncData ->
                     presentFavoriteSigns(
                         allSigns = syncData.signs,
                         favoriteEntries = favoritesRepository.getEntries()
                     )
+                    // Запускаем retry при каждом успешном контакте с сервером —
+                    // как при первой синхронизации на старте (сервер доступен),
+                    // так и при последующих обновлениях данных.
+                    // Сравниваем по lastUpdated чтобы не запускать дважды
+                    // если syncData эмитит одинаковое значение.
+                    if (syncData.lastUpdated != lastRetriedSyncTimestamp) {
+                        lastRetriedSyncTimestamp = syncData.lastUpdated
+                        retryFailedFavorites()
+                    }
+                }
+        }
+
+        // При восстановлении сети автоматически повторяем скачивание
+        // видео для всех избранных со статусом FAILED.
+        viewModelScope.launch {
+            networkMonitor.isConnectedFlow
+                .drop(1) // пропускаем начальное значение при старте
+                .filter { isConnected -> isConnected }
+                .collect {
+                    retryFailedFavorites()
                 }
         }
     }
@@ -92,6 +119,61 @@ class FavoritesViewModel @Inject constructor(
     fun retryLoadingFavorites() {
         viewModelScope.launch {
             loadFavoriteSigns(favoritesRepository.getEntries())
+        }
+    }
+
+    private fun retryFailedFavorites() {
+        viewModelScope.launch {
+            val failedEntries = favoritesRepository.getEntries()
+                .filter { it.status == FavoriteOfflineStatus.FAILED }
+            if (failedEntries.isEmpty()) return@launch
+
+            Timber.d(
+                "FavoritesViewModel: network restored, retrying %d FAILED favorites",
+                failedEntries.size
+            )
+
+            val cachedSignsById = favoritesRepository.getCachedSigns().associateBy { it.id }
+
+            failedEntries.forEach { entry ->
+                val sign = cachedSignsById[entry.signId] ?: run {
+                    Timber.w(
+                        "FavoritesViewModel: no cached sign snapshot for signId=%s, skipping retry",
+                        entry.signId
+                    )
+                    return@forEach
+                }
+
+                favoritesRepository.markFavoritePending(sign)
+                Timber.d(
+                    "FavoritesViewModel: retrying offline preparation for signId=%s",
+                    entry.signId
+                )
+
+                when (val result = videoRepository.prepareFavoriteOffline(sign)) {
+                    is FavoriteOfflinePreparationResult.Ready -> {
+                        favoritesRepository.markFavoriteReady(
+                            signId = sign.id,
+                            downloadedVideos = result.downloadedVideos
+                        )
+                        Timber.d(
+                            "FavoritesViewModel: retry succeeded for signId=%s",
+                            sign.id
+                        )
+                    }
+                    is FavoriteOfflinePreparationResult.Failed -> {
+                        favoritesRepository.markFavoriteFailed(
+                            signId = sign.id,
+                            downloadedVideos = result.downloadedVideos
+                        )
+                        Timber.w(
+                            result.error,
+                            "FavoritesViewModel: retry failed for signId=%s",
+                            sign.id
+                        )
+                    }
+                }
+            }
         }
     }
 

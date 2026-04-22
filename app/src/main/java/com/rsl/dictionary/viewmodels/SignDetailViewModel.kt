@@ -171,7 +171,10 @@ class SignDetailViewModel @Inject constructor(
                                 signId = currentSign.id,
                                 downloadedVideos = preparationResult.downloadedVideos
                             )
-                            _error.value = ErrorMessageMapper.map(preparationResult.error)
+                            // Не пишем в _error: знак сохранён в избранное, просто видео
+                            // не удалось скачать сейчас. Статус FAILED отобразится меткой
+                            // на экране. Повторная попытка произойдёт автоматически при
+                            // восстановлении сети через FavoritesViewModel.
                             Timber.w(
                                 preparationResult.error,
                                 "SignDetail: signId=%s favorite offline preparation failed",
