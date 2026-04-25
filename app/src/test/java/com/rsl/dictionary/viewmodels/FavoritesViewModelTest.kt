@@ -9,6 +9,7 @@ import com.rsl.dictionary.repositories.protocols.RefreshResult
 import com.rsl.dictionary.repositories.protocols.SignRepository
 import com.rsl.dictionary.repositories.protocols.SignRepositoryRefreshState
 import com.rsl.dictionary.repositories.protocols.VideoRepository
+import com.rsl.dictionary.services.network.NetworkMonitor
 import com.rsl.dictionary.testing.factories.TestDataFactory
 import com.rsl.dictionary.testing.fakes.FakeFavoritesRepository
 import com.rsl.dictionary.testing.fakes.FakeSignRepository
@@ -35,6 +36,9 @@ class FavoritesViewModelTest {
     private val signApple = TestDataFactory.sign(id = "sign-1", word = "Арбуз")
     private val signBanana = TestDataFactory.sign(id = "sign-2", word = "Банан")
     private val syncData = TestDataFactory.syncData(signs = listOf(signBanana, signApple))
+    private val networkMonitor = mockk<NetworkMonitor> {
+        every { isConnectedFlow } returns MutableStateFlow(true)
+    }
 
     @Test
     fun favoritesFlow_updatesFavoritesAndGroupedSections() = runTest {
@@ -42,7 +46,8 @@ class FavoritesViewModelTest {
         val viewModel = FavoritesViewModel(
             favoritesRepository = favoritesRepository,
             signRepository = FakeSignRepository(syncData),
-            videoRepository = FakeVideoRepository()
+            videoRepository = FakeVideoRepository(),
+            networkMonitor = networkMonitor
         )
         advanceUntilIdle()
 
@@ -68,7 +73,8 @@ class FavoritesViewModelTest {
         val viewModel = FavoritesViewModel(
             favoritesRepository = favoritesRepository,
             signRepository = FakeSignRepository(syncData),
-            videoRepository = videoRepository
+            videoRepository = videoRepository,
+            networkMonitor = networkMonitor
         )
         advanceUntilIdle()
 
@@ -92,7 +98,8 @@ class FavoritesViewModelTest {
             signRepository = FakeSignRepository(
                 TestDataFactory.syncData(signs = listOf(signApple))
             ),
-            videoRepository = videoRepository
+            videoRepository = videoRepository,
+            networkMonitor = networkMonitor
         )
         advanceUntilIdle()
 
@@ -115,7 +122,8 @@ class FavoritesViewModelTest {
         val viewModel = FavoritesViewModel(
             favoritesRepository = favoritesRepository,
             signRepository = signRepository,
-            videoRepository = FakeVideoRepository()
+            videoRepository = FakeVideoRepository(),
+            networkMonitor = networkMonitor
         )
         advanceUntilIdle()
 
@@ -142,7 +150,8 @@ class FavoritesViewModelTest {
         val viewModel = FavoritesViewModel(
             favoritesRepository = favoritesRepository,
             signRepository = signRepository,
-            videoRepository = FakeVideoRepository()
+            videoRepository = FakeVideoRepository(),
+            networkMonitor = networkMonitor
         )
         advanceUntilIdle()
 
@@ -166,7 +175,8 @@ class FavoritesViewModelTest {
         val viewModel = FavoritesViewModel(
             favoritesRepository = favoritesRepository,
             signRepository = signRepository,
-            videoRepository = FakeVideoRepository()
+            videoRepository = FakeVideoRepository(),
+            networkMonitor = networkMonitor
         )
         advanceUntilIdle()
 
@@ -182,7 +192,8 @@ class FavoritesViewModelTest {
         val viewModel = FavoritesViewModel(
             favoritesRepository = favoritesRepository,
             signRepository = signRepository,
-            videoRepository = FakeVideoRepository()
+            videoRepository = FakeVideoRepository(),
+            networkMonitor = networkMonitor
         )
         advanceUntilIdle()
 
