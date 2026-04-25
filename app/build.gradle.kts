@@ -202,6 +202,59 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+tasks.register<JacocoReport>("unitTestCoverageReport") {
+    dependsOn("testDebugUnitTest")
+
+    group = "verification"
+    description = "Generates a JaCoCo coverage report for debug unit tests only (no device required)."
+
+    val buildDirFile = layout.buildDirectory.get().asFile
+
+    classDirectories.setFrom(
+        files(
+            fileTree("${buildDirFile}/intermediates/javac/debug/compileDebugJavaWithJavac/classes") {
+                exclude(coverageExclusions)
+            },
+            fileTree("${buildDirFile}/intermediates/javac/debug/classes") {
+                exclude(coverageExclusions)
+            },
+            fileTree("${buildDirFile}/tmp/kotlin-classes/debug") {
+                exclude(coverageExclusions)
+            }
+        )
+    )
+
+    sourceDirectories.setFrom(
+        files(
+            "src/main/java",
+            "src/main/kotlin"
+        )
+    )
+
+    executionData.setFrom(
+        fileTree(buildDirFile) {
+            include(
+                "jacoco/testDebugUnitTest.exec",
+                "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
+            )
+        }
+    )
+
+    reports {
+        xml.required.set(true)
+        html.required.set(true)
+        csv.required.set(false)
+    }
+
+    doFirst {
+        layout.buildDirectory
+            .dir("reports/jacoco/unitTestCoverageReport")
+            .get()
+            .asFile
+            .deleteRecursively()
+    }
+}
+
 tasks.register<JacocoReport>("mergedDebugCoverageReport") {
     dependsOn("testDebugUnitTest", "connectedDebugAndroidTest")
 
