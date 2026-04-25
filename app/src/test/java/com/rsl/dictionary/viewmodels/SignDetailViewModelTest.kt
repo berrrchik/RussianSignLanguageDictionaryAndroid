@@ -159,7 +159,7 @@ class SignDetailViewModelTest {
 
         assertTrue(viewModel.isFavorite.value)
         assertEquals(FavoriteOfflineStatus.FAILED, favoritesRepository.getOfflineStatus("sign-1"))
-        assertEquals("Видео сейчас недоступно", viewModel.error.value)
+        assertNull(viewModel.error.value)
     }
 
     @Test
