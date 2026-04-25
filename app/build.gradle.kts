@@ -210,17 +210,20 @@ tasks.register<JacocoReport>("unitTestCoverageReport") {
 
     val buildDirFile = layout.buildDirectory.get().asFile
 
+    // AGP (enableUnitTestCoverage = true) offline-instruments via jacocoDebug, which takes
+    // the ASM-transformed output as input. The exec file fingerprints match the post-ASM
+    // classes (dirs/ contains app business logic, jars/0.jar contains R classes).
     classDirectories.setFrom(
         files(
-            fileTree("${buildDirFile}/intermediates/javac/debug/compileDebugJavaWithJavac/classes") {
+            fileTree("${buildDirFile}/intermediates/classes/debug/transformDebugClassesWithAsm/dirs") {
+                include("com/rsl/dictionary/**")
                 exclude(coverageExclusions)
             },
-            fileTree("${buildDirFile}/intermediates/javac/debug/classes") {
-                exclude(coverageExclusions)
-            },
-            fileTree("${buildDirFile}/tmp/kotlin-classes/debug") {
-                exclude(coverageExclusions)
-            }
+            zipTree("${buildDirFile}/intermediates/classes/debug/transformDebugClassesWithAsm/jars/0.jar")
+                .matching {
+                    include("com/rsl/dictionary/**")
+                    exclude(coverageExclusions)
+                }
         )
     )
 
@@ -234,7 +237,6 @@ tasks.register<JacocoReport>("unitTestCoverageReport") {
     executionData.setFrom(
         fileTree(buildDirFile) {
             include(
-                "jacoco/testDebugUnitTest.exec",
                 "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec"
             )
         }
