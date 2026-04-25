@@ -28,14 +28,11 @@ jobs:
       - name: Write google-services.json
         run: echo '${{ secrets.GOOGLE_SERVICES_JSON }}' > app/google-services.json
 
-      - name: Run unit tests
-        run: ./gradlew testDebugUnitTest
+      - name: Run unit tests and generate coverage
+        run: ./gradlew testDebugUnitTest unitTestCoverageReport
 
       - name: Assemble debug APK
         run: ./gradlew assembleDebug
-
-      - name: Generate coverage report
-        run: ./gradlew unitTestCoverageReport
 
       - name: Upload test results
         if: always()
